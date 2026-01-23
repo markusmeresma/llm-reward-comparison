@@ -1,4 +1,3 @@
-# environment.yml
 name: fyp
 channels:
   - conda-forge
