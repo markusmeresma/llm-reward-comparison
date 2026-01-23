@@ -1,0 +1,13 @@
+# environment.yml
+name: fyp
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - gymnasium
+  - stable-baselines3
+  - pyyaml
+  - pip
+  - pip:
+    - minigrid
