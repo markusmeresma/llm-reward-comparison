@@ -4,10 +4,12 @@ from pathlib import Path
 from utils import make_vec_env, get_reward_model
 from datetime import datetime
 from demo import run_demo
+from utils import load_config
 
-env_string = "MiniGrid-SimpleCrossingS11N5-v0"
-total_timesteps = 50_000
-reward_model_type = "ground_truth"
+config = load_config()
+env_string = config["env_string"]
+total_timesteps = config["total_timesteps"]
+reward_model_type = config["reward_model"]
 reward_model = get_reward_model(reward_model_type)
 env = make_vec_env(env_string, reward_model)
 
