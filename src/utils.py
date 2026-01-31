@@ -7,6 +7,7 @@ import yaml
 from rewards import RewardModel
 from typing import Any
 from stable_baselines3.common.vec_env import VecEnv
+from stable_baselines3.common.monitor import Monitor
 
 def load_config() -> dict[str, Any]:
     config_path = Path(__file__).parent.parent / "config.yaml"
@@ -18,6 +19,7 @@ def make_env(env_string, reward_model, render_mode=None) -> gym.Env:
     env = RGBImgObsWrapper(env)
     env = ImgObsWrapper(env)
     env = RewardModelWrapper(env, reward_model)
+    env = Monitor(env)
     return env
 
 def make_vec_env(env_string, reward_model, render_mode=None) -> VecEnv:

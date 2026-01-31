@@ -11,7 +11,8 @@ build/
 venv/
 
 # Models
-models/
+models/*
+!models/.gitkeep
 
 # IDE
 .idea/
