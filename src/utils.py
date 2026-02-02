@@ -34,3 +34,4 @@ def get_reward_model(reward_model_type) -> RewardModel:
         return ImplicitRewardModel()
     else:
         raise ValueError(f"Invalid reward model type: {reward_model_type}")
+    

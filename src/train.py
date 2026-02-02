@@ -1,11 +1,20 @@
-from gc import callbacks
-import gymnasium as gym
 from stable_baselines3 import PPO
 from pathlib import Path
 from utils import make_vec_env, get_reward_model
 from datetime import datetime
 from demo import run_demo
 from utils import load_config
+from dotenv import load_dotenv
+import os
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(name)s | %(levelname)s | %(message)s"
+)
+
+load_dotenv()
+open_router_api_key = os.getenv("OPEN_ROUTER_API_KEY")
 
 config = load_config()
 env_string = config["env_string"]
