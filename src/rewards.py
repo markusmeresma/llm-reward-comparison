@@ -2,6 +2,7 @@ from gymnasium import Wrapper
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from minigrid.core.grid import Grid
+from implicit_reward import build_binary_implicit_prompt, trajectory_to_text
 
 @dataclass
 class Step:
@@ -27,17 +28,30 @@ def get_goal_pos(grid: Grid) -> tuple:
 
 class RewardModel(ABC):
     @abstractmethod
-    def compute_reward(self, state, action, next_state, reward) -> float:
+    def compute_reward(self, state, action, next_state, reward,
+                       terminated: bool, truncated: bool, trajectory) -> float:
         pass
 
 class GroundTruthRewardModel(RewardModel):
-    def compute_reward(self, state, action, next_state, reward) -> float:
+    def compute_reward(self, state, action, next_state, reward,
+                       terminated, truncated, trajectory) -> float:
         return reward
 
 class ImplicitRewardModel(RewardModel):
-    def compute_reward(self, state, action, next_state, reward) -> float:
-        # todo - use LLM to compute reward
-        return reward
+    def __init__(self, llm_client, env_id: str, task_prompt: str) -> None:
+        self.llm_client = llm_client
+        self.env_id = env_id
+        self.task_prompt = task_prompt
+    
+    def compute_reward(self, state, action, next_state, reward,
+                       terminated, truncated, trajectory) -> float:
+        # Only call LLM at episode end
+        if not (terminated or truncated):
+            return 0.0
+        
+        traj_text = trajectory_to_text(trajectory, self.env_id, terminated, truncated)
+        prompt = build_binary_implicit_prompt(self.task_prompt, traj_text)
+        return self.llm_client.evaluate_trajectory(prompt)
     
 class RewardModelWrapper(Wrapper):
     def __init__(self, env, reward_model: RewardModel):
@@ -69,6 +83,9 @@ class RewardModelWrapper(Wrapper):
             action=action,
             next_state=obs,
             reward=reward,
+            terminated=terminated,
+            truncated=truncated,
+            trajectory=self.trajectory,
         )
         self._current_obs = obs
         return obs, new_reward, terminated, truncated, info

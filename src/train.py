@@ -25,7 +25,8 @@ env = make_vec_env(env_string, reward_model)
 
 project_root = Path(__file__).parent.parent
 models_dir = project_root / "models"
-model_path = models_dir / f"ppo_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+model_path = models_dir / f"ppo_model_{run_id}"
 tb_logs_path = project_root / "tensorboard-logs"
 
 model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=tb_logs_path)
