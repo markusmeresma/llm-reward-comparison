@@ -1,12 +1,12 @@
 from stable_baselines3 import PPO
 from pathlib import Path
-from utils import make_vec_env, get_reward_model
-from datetime import datetime
-from demo import run_demo
-from utils import load_config
 from dotenv import load_dotenv
-import os
+from datetime import datetime
 import logging
+from config import load_config, get_project_root
+from env import make_vec_env
+from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
+from llm_client import LLMClient, OpenRouterConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,26 +14,52 @@ logging.basicConfig(
 )
 
 load_dotenv()
-open_router_api_key = os.getenv("OPEN_ROUTER_API_KEY")
 
-config = load_config()
-env_string = config["env_string"]
-total_timesteps = config["total_timesteps"]
-reward_model_type = config["reward_model"]
-reward_model = get_reward_model(reward_model_type)
-env = make_vec_env(env_string, reward_model)
+def create_reward_model(config: dict, run_id: str, log_dir: Path) -> RewardModel:
+    """Factory for reward models"""
+    reward_type = config["reward_model"]
+    
+    if reward_type == "ground_truth":
+        return GroundTruthRewardModel()
+    
+    elif reward_type == "implicit":
+        llm_config = OpenRouterConfig.from_env()
+        llm_client = LLMClient(llm_config, log_dir, run_id)
+        return ImplicitRewardModel(
+            llm_client=llm_client,
+            env_id=config["env_string"],
+            task_prompt=config["task_prompt"],
+        )
+    
+    else:
+        raise ValueError(f"Unknown reward model: {reward_type}")
+    
+def main():
+    config = load_config()
+    project_root = get_project_root()
+    
+    # Training run identifiers and log paths
+    run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+    models_dir = project_root / "models"
+    log_dir = project_root / "logs"
+    tb_logs_path = project_root / "tensorboard-logs"
+    model_path = models_dir / f"ppo_model_{run_id}"
+    
+    # Setup
+    reward_model = create_reward_model(config, run_id, log_dir)
+    env = make_vec_env(config["env_string"], reward_model)
+    
+    # Train
+    model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=tb_logs_path)
+    model.learn(total_timesteps=config["total_timesteps"])
+    model.save(model_path)
+    
+    logging.info(f"Model saved to {model_path}")
+    
 
-project_root = Path(__file__).parent.parent
-models_dir = project_root / "models"
-run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-model_path = models_dir / f"ppo_model_{run_id}"
-tb_logs_path = project_root / "tensorboard-logs"
+if __name__ == "__main__":
+    main()
 
-model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=tb_logs_path)
-model.learn(total_timesteps)
-model.save(model_path)
-
-run_demo(model_path, env_string, reward_model)
 
 
 

@@ -1,12 +1,11 @@
-from utils import make_env
+from env import make_demo_env
 from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
 from stable_baselines3 import PPO
-from utils import load_config
-from utils import get_reward_model
+from config import load_config
 import sys
 
-def run_demo(model_path, env_string, reward_model):
-    demo_env = DummyVecEnv([lambda: make_env(env_string, reward_model, render_mode="human")])
+def run_demo(model_path, env_id):
+    demo_env = DummyVecEnv([lambda: make_demo_env(env_id)])
     demo_env = VecTransposeImage(demo_env)
     obs = demo_env.reset()
     model = PPO.load(model_path)
@@ -24,7 +23,6 @@ if __name__ == "__main__":
         sys.exit(1)
     
     config = load_config()
-    env_string = config["env_string"]
-    reward_model = get_reward_model(config["reward_model"])
+    env_id = config["env_string"]
     model_path = sys.argv[1]
-    run_demo(model_path, env_string, reward_model)
+    run_demo(model_path, env_id)
