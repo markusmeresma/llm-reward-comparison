@@ -9,3 +9,7 @@ def load_config() -> dict[str, Any]:
     
 def get_project_root() -> Path:
     return Path(__file__).parent.parent
+
+def load_prompt(name: str) -> str:
+    prompt_path = get_project_root() / "prompts" / f"{name}.txt"
+    return prompt_path.read_text().strip()

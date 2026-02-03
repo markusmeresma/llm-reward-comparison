@@ -20,7 +20,7 @@ def trajectory_to_text(
     """Convert trajectory to compact text for LLM."""
     lines = [
         f"Environment: {env_id}",
-        f"Start: pos={trajectory.initial_pos}, dir={trajectory.initial_dir}"
+        f"Start: pos={trajectory.initial_pos}, dir={trajectory.initial_dir}",
         f"Goal: pos={trajectory.goal_pos}",
         f"Steps: {len(trajectory.steps)}",
         f"Outcome: terminated={terminated}, truncated={truncated}",
@@ -37,6 +37,6 @@ def build_binary_implicit_prompt(task_prompt: str, trajectory_text: str) -> str:
     return (
         f"{task_prompt}\n\n"
         f"--- TRAJECTORY ---\n"
-        f"{trajectory_text}"
+        f"{trajectory_text}\n\n"
         f"Respond with JSON: {{\"score\": 1}} for success, {{\"score\": 0}} for failure."
     )
