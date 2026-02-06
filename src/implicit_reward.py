@@ -1,4 +1,4 @@
-from rewards import Trajectory
+from models import Trajectory
 
 # Documented in https://github.com/Farama-Foundation/Minigrid/blob/master/minigrid/core/actions.py
 ACTION_NAMES = {
