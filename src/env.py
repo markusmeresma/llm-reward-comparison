@@ -25,3 +25,16 @@ def make_vec_env(env_id: str, reward_model: RewardModel, render_mode=None) -> Ve
     env = DummyVecEnv([lambda: make_env(env_id, reward_model, render_mode)])
     env = VecTransposeImage(env)
     return env
+
+def make_eval_env(env_id) -> VecEnv:
+    """Env for running evals (without reward wrapper)"""
+    def _make():
+        env = gym.make(env_id, render_mode=None)
+        env = RGBImgObsWrapper(env)
+        env = ImgObsWrapper(env)
+        env = Monitor(env)
+        return env
+
+    env = DummyVecEnv([_make])
+    env = VecTransposeImage(env)
+    return env

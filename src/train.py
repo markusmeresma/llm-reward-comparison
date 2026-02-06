@@ -4,9 +4,10 @@ from dotenv import load_dotenv
 from datetime import datetime
 import logging
 from config import load_config, get_project_root
-from env import make_vec_env
+from env import make_vec_env, make_eval_env
 from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
 from llm_client import LLMClient, OpenRouterConfig
+from callbacks import SuccessRateCallback
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,10 +49,19 @@ def main():
     # Setup
     reward_model = create_reward_model(config, run_id, log_dir)
     env = make_vec_env(config["env_string"], reward_model)
+    eval_env = make_eval_env(config["env_string"])
+    
+    callback = SuccessRateCallback(
+        eval_env=eval_env,
+        eval_freq=2000,
+        n_eval_episodes=25,
+        success_threshold=0.90,
+        deterministic=True
+    )
     
     # Train
     model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=tb_logs_path)
-    model.learn(total_timesteps=config["total_timesteps"])
+    model.learn(total_timesteps=config["total_timesteps"], callback=callback)
     model.save(model_path)
     
     logging.info(f"Model saved to {model_path}")
