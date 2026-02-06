@@ -20,3 +20,4 @@ tensorboard-logs/*
 # IDE
 .idea/
 *.swp
+.vscode/
