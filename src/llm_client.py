@@ -1,7 +1,7 @@
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 from requests.exceptions import Timeout, ConnectionError, HTTPError, RequestException
 from dataclasses import dataclass
-from .llm_schemas.score_response import score_response
+from llm_schemas.score_response import score_response
 from typing import Any
 from pathlib import Path
 from datetime import datetime
