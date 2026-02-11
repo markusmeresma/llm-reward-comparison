@@ -30,6 +30,7 @@ class SuccessRateCallback(BaseCallback):
         success_rate = successes / self.n_eval_episodes
         
         self.logger.record("eval/success_rate", success_rate)
+        self.logger.dump(self.num_timesteps)
         
         if success_rate >= self.success_threshold:
             self.timestep_to_threshold = self.num_timesteps

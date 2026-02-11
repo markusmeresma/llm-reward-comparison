@@ -4,6 +4,7 @@ from stable_baselines3 import PPO
 from config import load_config
 import sys
 
+# How to run from root folder: python3 src/demo.py models/<model_id>
 def run_demo(model_path, env_id):
     demo_env = DummyVecEnv([lambda: make_demo_env(env_id)])
     demo_env = VecTransposeImage(demo_env)

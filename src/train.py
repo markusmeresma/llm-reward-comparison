@@ -43,11 +43,13 @@ def main():
     run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     models_dir = project_root / "models"
     log_dir = project_root / "logs"
+    # Running tensorboard locally: tensorboard --logdir tensorboard-logs
     tb_logs_path = project_root / "tensorboard-logs"
     model_path = models_dir / f"ppo_model_{run_id}"
     
     # Setup
     reward_model = create_reward_model(config, run_id, log_dir)
+    logging.info(f"Reward model: {reward_model}")
     env = make_vec_env(config["env_string"], reward_model)
     eval_env = make_eval_env(config["env_string"])
     
@@ -55,8 +57,7 @@ def main():
         eval_env=eval_env,
         eval_freq=2000,
         n_eval_episodes=25,
-        success_threshold=0.90,
-        deterministic=True
+        success_threshold=0.90
     )
     
     # Train
