@@ -6,7 +6,7 @@ import logging
 from config import load_config, get_project_root
 from env import make_vec_env, make_eval_env
 from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
-from llm_client import LLMClient, OpenRouterConfig
+from llm_client import LLMClient, create_provider
 from callbacks import SuccessRateCallback
 
 logging.basicConfig(
@@ -24,8 +24,8 @@ def create_reward_model(config: dict, run_id: str, log_dir: Path) -> RewardModel
         return GroundTruthRewardModel()
     
     elif reward_type == "implicit":
-        llm_config = OpenRouterConfig.from_env()
-        llm_client = LLMClient(llm_config, log_dir, run_id)
+        provider = create_provider(config["llm_provider"])
+        llm_client = LLMClient(provider, log_dir, run_id)
         return ImplicitRewardModel(
             llm_client=llm_client,
             env_id=config["env_string"],
