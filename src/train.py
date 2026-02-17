@@ -8,6 +8,7 @@ from env import make_vec_env, make_eval_env
 from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
 from llm_client import LLMClient, create_provider
 from callbacks import SuccessRateCallback
+import yaml
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,34 +39,38 @@ def create_reward_model(config: dict, run_id: str, log_dir: Path) -> RewardModel
 def main():
     config = load_config()
     project_root = get_project_root()
+    seed = config["seed"]
     
-    # Training run identifiers and log paths
+    # Build a run directory
     run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-    models_dir = project_root / "models"
-    log_dir = project_root / "logs"
-    # Running tensorboard locally: tensorboard --logdir tensorboard-logs
-    tb_logs_path = project_root / "tensorboard-logs"
-    model_path = models_dir / f"ppo_model_{run_id}"
+    run_name = f"{config['reward_model']}_seed{seed}_{run_id}"
+    run_dir = project_root / "experiments" / run_name
+    run_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save config snapshot for reproducibility
+    with open(run_dir / "config.yaml", "w") as f:
+        yaml.dump(config, f)
     
     # Setup
-    reward_model = create_reward_model(config, run_id, log_dir)
+    reward_model = create_reward_model(config, run_id, run_dir)
     logging.info(f"Reward model: {reward_model}")
-    env = make_vec_env(config["env_string"], reward_model)
-    eval_env = make_eval_env(config["env_string"])
+    env = make_vec_env(config["env_string"], reward_model, seed=seed)
+    eval_env = make_eval_env(config["env_string"], seed=seed+1000)
     
     callback = SuccessRateCallback(
         eval_env=eval_env,
         eval_freq=2000,
         n_eval_episodes=25,
-        success_threshold=0.90
+        success_threshold=0.90,
+        csv_path=run_dir / "metrics.csv"
     )
     
     # Train
-    model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=tb_logs_path)
+    model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=str(run_dir / "tensorboard"), seed=seed)
     model.learn(total_timesteps=config["total_timesteps"], callback=callback)
-    model.save(model_path)
+    model.save(run_dir / "model")
     
-    logging.info(f"Model saved to {model_path}")
+    logging.info(f"Run complete: {run_dir}")
     
 
 if __name__ == "__main__":

@@ -10,12 +10,7 @@ build/
 .venv/
 venv/
 
-# Models
-models/*
-!models/.gitkeep
-
-# Tensorboard logs
-tensorboard-logs/*
+experiments/
 
 # IDE
 .idea/
