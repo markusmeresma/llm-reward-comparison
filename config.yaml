@@ -1,5 +1,5 @@
 env_string: "MiniGrid-Empty-5x5-v0"
 total_timesteps: 50000
-reward_model: "ground_truth"
-prompt_version: "implicit_binary-v1"
-llm_provider: "mistral" # or 'openrouter'
+reward_model: "implicit"
+prompt_version: "implicit_binary_v1"
+llm_provider: "openrouter" # or 'mistral'

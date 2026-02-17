@@ -3,7 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import datetime
 import logging
-from config import load_config, get_project_root
+from config import load_config, get_project_root, load_prompt
 from env import make_vec_env, make_eval_env
 from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
 from llm_client import LLMClient, create_provider
@@ -29,7 +29,7 @@ def create_reward_model(config: dict, run_id: str, log_dir: Path) -> RewardModel
         return ImplicitRewardModel(
             llm_client=llm_client,
             env_id=config["env_string"],
-            task_prompt=config["prompt_version"],
+            task_prompt=load_prompt(config["prompt_version"]),
         )
     
     else:
