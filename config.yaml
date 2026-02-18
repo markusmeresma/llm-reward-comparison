@@ -1,6 +1,6 @@
-env_string: "MiniGrid-Empty-5x5-v0"
+env_string: "MiniGrid-Empty-5x5-v0" # or "CrafterReward-v1"
 total_timesteps: 50000
-reward_model: "ground_truth" # or 'implicit'
+reward_model: "ground_truth" # or "implicit"
 prompt_version: "implicit_binary_v1"
-llm_provider: "openrouter" # or 'mistral'
+llm_provider: "openrouter" # or "mistral"
 seed: 42

@@ -8,6 +8,7 @@ from env import make_vec_env, make_eval_env
 from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
 from llm_client import LLMClient, create_provider
 from callbacks import SuccessRateCallback
+from environments import get_adapter
 import yaml
 
 logging.basicConfig(
@@ -17,7 +18,7 @@ logging.basicConfig(
 
 load_dotenv()
 
-def create_reward_model(config: dict, run_id: str, log_dir: Path) -> RewardModel:
+def create_reward_model(adapter, config: dict, run_id: str, log_dir: Path) -> RewardModel:
     """Factory for reward models"""
     reward_type = config["reward_model"]
     
@@ -31,6 +32,7 @@ def create_reward_model(config: dict, run_id: str, log_dir: Path) -> RewardModel
             llm_client=llm_client,
             env_id=config["env_string"],
             task_prompt=load_prompt(config["prompt_version"]),
+            adapter=adapter,
         )
     
     else:
@@ -38,6 +40,7 @@ def create_reward_model(config: dict, run_id: str, log_dir: Path) -> RewardModel
     
 def main():
     config = load_config()
+    adapter = get_adapter(config["env_string"])
     project_root = get_project_root()
     seed = config["seed"]
     
@@ -52,17 +55,18 @@ def main():
         yaml.dump(config, f)
     
     # Setup
-    reward_model = create_reward_model(config, run_id, run_dir)
+    reward_model = create_reward_model(adapter, config, run_id, run_dir)
     logging.info(f"Reward model: {reward_model}")
-    env = make_vec_env(config["env_string"], reward_model, seed=seed)
-    eval_env = make_eval_env(config["env_string"], seed=seed+1000)
+    env = make_vec_env(adapter, config["env_string"], reward_model, seed=seed)
+    eval_env = make_eval_env(adapter, config["env_string"], seed=seed+1000)
     
     callback = SuccessRateCallback(
         eval_env=eval_env,
         eval_freq=2000,
         n_eval_episodes=25,
         success_threshold=0.90,
-        csv_path=run_dir / "metrics.csv"
+        csv_path=run_dir / "metrics.csv",
+        adapter=adapter,
     )
     
     # Train

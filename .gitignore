@@ -12,6 +12,9 @@ venv/
 
 experiments/
 
+# Exploration scripts
+src/explore_*.py
+
 # IDE
 .idea/
 *.swp

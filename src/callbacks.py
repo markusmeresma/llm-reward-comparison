@@ -5,7 +5,7 @@ from pathlib import Path
 import time
 
 class SuccessRateCallback(BaseCallback):
-    def __init__(self, eval_env, eval_freq, n_eval_episodes, success_threshold, csv_path: Path):
+    def __init__(self, adapter, eval_env, eval_freq, n_eval_episodes, success_threshold, csv_path: Path):
         super().__init__()
         self.eval_env = eval_env
         self.eval_freq = eval_freq
@@ -14,6 +14,7 @@ class SuccessRateCallback(BaseCallback):
         self.timestep_to_threshold = None
         self.csv_path = csv_path
         self.start_time = None
+        self.adapter = adapter
         
     def _on_training_start(self):
         self.start_time = time.time()
@@ -43,7 +44,8 @@ class SuccessRateCallback(BaseCallback):
             
             episode_returns.append(ep_return)
             episode_lengths.append(ep_length)
-            if float(reward[0]) > 0:
+            # TODO - implement is_success for crafter
+            if self.adapter.is_success(float(reward[0]), info[0]):
                 successes += 1
                 
         success_rate = successes / self.n_eval_episodes

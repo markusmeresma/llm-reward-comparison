@@ -11,6 +11,9 @@ dependencies:
   - pip
   - pip:
     - minigrid
+    - crafter
+    - shimmy[gym-v21]
+    - gym
   - requests
   - python-dotenv
   - tenacity
