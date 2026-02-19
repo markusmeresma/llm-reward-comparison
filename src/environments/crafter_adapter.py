@@ -2,6 +2,7 @@ import gym as old_gym
 from shimmy.openai_gym_compatibility import GymV21CompatibilityV0
 from environments.adapter import EnvAdapter
 from models import Trajectory
+import crafter #required for env registration
 
 CRAFTER_ACHIEVEMENTS: tuple[str, ...] = (
     "collect_coal",
