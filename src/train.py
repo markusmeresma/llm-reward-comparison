@@ -31,7 +31,7 @@ def create_reward_model(adapter, config: dict, run_id: str, log_dir: Path) -> Re
         return ImplicitRewardModel(
             llm_client=llm_client,
             env_id=config["env_string"],
-            task_prompt=load_prompt(config["prompt_version"]),
+            task_prompt=load_prompt(config["env_alias"], config["prompt_version"]),
             adapter=adapter,
         )
     

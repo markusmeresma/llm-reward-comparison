@@ -11,9 +11,21 @@ def load_config() -> dict[str, Any]:
 def get_project_root() -> Path:
     return Path(__file__).parent.parent
 
-def load_prompt(name: str) -> str:
-    prompt_path = get_project_root() / "prompts" / f"{name}.txt"
-    return prompt_path.read_text().strip()
+def load_prompt(env_alias: str, name: str) -> str:
+    prompt_path = get_project_root() / "prompts" / env_alias / f"{name}.txt"
+    
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Prompt file not found for env='{env_alias}', version='{name}': {prompt_path}"
+        )
+
+    content = prompt_path.read_text().strip()
+    if not content:
+        raise ValueError(
+            f"Prompt file is empty for env='{env_alias}', version='{name}': {prompt_path}"
+        )
+
+    return content
 
 def parse_train_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train PPO with selected env and reward model.")
@@ -46,7 +58,7 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "total_timesteps": env_cfg["total_timesteps"],
         "eval_freq": env_cfg["eval_freq"],
         "n_eval_episodes": env_cfg["n_eval_episodes"],
-        "prompt_version": defaults["prompt_version"],
+        "prompt_version": env_cfg["prompt_version"],
         "llm_provider": defaults["llm_provider"],
         "seed": defaults["seed"],
     }
