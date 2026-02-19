@@ -3,7 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import datetime
 import logging
-from config import load_config, get_project_root, load_prompt
+from config import get_project_root, load_prompt, load_train_config
 from env import make_vec_env, make_eval_env
 from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
 from llm_client import LLMClient, create_provider
@@ -45,9 +45,9 @@ def create_callback(adapter, config: dict, eval_env, run_dir: Path):
         return MiniGridCallback(
             adapter=adapter,
             eval_env=eval_env,
-            eval_freq=config.get("eval_freq", 2000),
-            n_eval_episodes=config.get("n_eval_episodes", 25),
-            success_threshold=config.get("success_threshold", 0.90),
+            eval_freq=config["eval_freq"],
+            n_eval_episodes=config["n_eval_episodes"],
+            success_threshold=config["success_threshold"],
             csv_path=run_dir / "metrics.csv",
         )
         
@@ -55,8 +55,8 @@ def create_callback(adapter, config: dict, eval_env, run_dir: Path):
         return CrafterCallback(
             adapter=adapter,
             eval_env=eval_env,
-            eval_freq=config.get("crafter_eval_freq", 50_000),
-            n_eval_episodes=config.get("crafter_n_eval_episodes", 20),
+            eval_freq=config["eval_freq"],
+            n_eval_episodes=config["n_eval_episodes"],
             train_episode_csv_path=run_dir / "crafter_train_episodes.csv",
             train_achievements_csv_path=run_dir / "crafter_train_achievements.csv",
             eval_csv_path=run_dir / "crafter_eval_metrics.csv",
@@ -65,14 +65,14 @@ def create_callback(adapter, config: dict, eval_env, run_dir: Path):
     raise ValueError(f"No callback configured for environment: {env_id}")
     
 def main():
-    config = load_config()
+    config = load_train_config()
     adapter = get_adapter(config["env_string"])
     project_root = get_project_root()
     seed = config["seed"]
     
     # Build a run directory
     run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-    run_name = f"{config['reward_model']}_seed{seed}_{run_id}"
+    run_name = f"{config['env_alias']}_{config['reward_model']}_seed{seed}_{run_id}"
     run_dir = project_root / "experiments" / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
     

@@ -3,9 +3,9 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
 from stable_baselines3 import PPO
 from config import load_config
 from environments import get_adapter
-import sys
+import argparse
 
-# How to run from root folder: python3 src/demo.py models/<model_id>
+# How to run from root folder: python3 src/demo.py models/<model_id> --env minigrid
 def run_demo(adapter, model_path, env_id):
     demo_env = DummyVecEnv([lambda: make_demo_env(adapter, env_id)])
     demo_env = VecTransposeImage(demo_env)
@@ -18,14 +18,21 @@ def run_demo(adapter, model_path, env_id):
         obs, _, dones, _ = demo_env.step(action)
         if dones.any():
             obs = demo_env.reset()
-            
+def parse_demo_args(argv=None):
+    parser = argparse.ArgumentParser(description="Run a trained PPO model in demo mode.")
+    parser.add_argument("model_path", help="Path to trained model")
+    parser.add_argument(
+        "--env",
+        required=True,
+        choices=["minigrid", "crafter"],
+        help="Environment alias used in config.yaml under envs/",
+    )
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python demo.py <model_path>")
-        sys.exit(1)
-    
+    args = parse_demo_args()
     config = load_config()
-    env_id = config["env_string"]
-    adapter = get_adapter(config["env_string"])
-    model_path = sys.argv[1]
-    run_demo(adapter, model_path, env_id)
+    env_id = config["envs"][args.env]["env_string"]
+    adapter = get_adapter(env_id)
+    run_demo(adapter, args.model_path, env_id)

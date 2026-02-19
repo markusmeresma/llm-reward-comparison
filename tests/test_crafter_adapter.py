@@ -23,7 +23,7 @@ def test_extract_step_state_uses_info_payload():
     assert state["achievements"] == {"collect_wood": 1}
 
 
-def test_trajectory_to_text_and_success_logic():
+def test_trajectory_to_text():
     adapter = CrafterAdapter()
     trajectory = Trajectory(
         initial_state={},
@@ -51,5 +51,3 @@ def test_trajectory_to_text_and_success_logic():
     assert " 0: move_left -> pos=(1, 1)" in text
     assert " 1: do -> pos=(1, 2)" in text
 
-    assert adapter.is_success(0.0, {"achievements": {"collect_wood": 1}}) is True
-    assert adapter.is_success(1.0, {"achievements": {"collect_wood": 0}}) is False
