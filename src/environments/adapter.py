@@ -23,11 +23,6 @@ class EnvAdapter(ABC):
         """Convert trajectory to text for LLM evaluation."""
         pass
     
-    @abstractmethod
-    def is_success(self, reward: float, info: dict) -> bool:
-        """Determine if an episode was successful (for eval callback)."""
-        pass
-    
     @property
     @abstractmethod
     def action_names(self) -> dict[int, str]:

@@ -48,8 +48,17 @@ class RewardModelWrapper(Wrapper):
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
+        
+        # Attach explicit episode-end reason for downstream logging.
+        info = dict(info or {})
+        if truncated:
+            info["termination_reason"] = "timeout"
+        elif terminated:
+            info["termination_reason"] = "died"
+        
         step_state = self.adapter.extract_step_state(self.env, action, info)
         self.trajectory.steps.append(step_state)
+        
         new_reward = self.reward_model.compute_reward(
             state=self._current_obs,  
             action=action,

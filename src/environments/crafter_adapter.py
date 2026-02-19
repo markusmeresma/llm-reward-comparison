@@ -3,6 +3,31 @@ from shimmy.openai_gym_compatibility import GymV21CompatibilityV0
 from environments.adapter import EnvAdapter
 from models import Trajectory
 
+CRAFTER_ACHIEVEMENTS: tuple[str, ...] = (
+    "collect_coal",
+    "collect_diamond",
+    "collect_drink",
+    "collect_iron",
+    "collect_sapling",
+    "collect_stone",
+    "collect_wood",
+    "defeat_skeleton",
+    "defeat_zombie",
+    "eat_cow",
+    "eat_plant",
+    "make_iron_pickaxe",
+    "make_iron_sword",
+    "make_stone_pickaxe",
+    "make_stone_sword",
+    "make_wood_pickaxe",
+    "make_wood_sword",
+    "place_furnace",
+    "place_plant",
+    "place_stone",
+    "place_table",
+    "wake_up",
+)
+
 class CrafterAdapter(EnvAdapter):
     def make_base_env(self, env_id: str, seed: int = None, render_mode=None) -> old_gym.Env:
         gym_env = old_gym.make(env_id)
@@ -44,10 +69,6 @@ class CrafterAdapter(EnvAdapter):
             name = action_names.get(step["action"], f"unknown({step['action']})")
             lines.append(f" {i}: {name} -> pos={step['pos']}")
         return "\n".join(lines)
-    
-    def is_success(self, reward: float, info: dict):
-        # TODO(IMPORTANT): Define explicit Crafter success metrics before implementation
-        pass
             
     @property
     def action_names(self) -> dict[int, str]:
@@ -59,3 +80,17 @@ class CrafterAdapter(EnvAdapter):
             13: "make_iron_pickaxe", 14: "make_wood_sword",
             15: "make_stone_sword", 16: "make_iron_sword",
         }
+        
+    @property
+    def achievement_names(self) -> tuple[str, ...]:
+        return CRAFTER_ACHIEVEMENTS
+    
+    def achievements_binary(self, achievements: dict) -> list[int]:
+        """Return fixed-order 22-dim binary vector from Crafter achievements dict."""
+        return [1 if achievements.get(name, 0) >= 1 else 0 for name in self.achievement_names]
+    
+    def achievement_column_names(self) -> list[str]:
+        return [f"achievement_{name}" for name in self.achievement_names]
+    
+    def success_rate_column_names(self) -> list[str]:
+        return [f"success_rate_{name}" for name in self.achievement_names]

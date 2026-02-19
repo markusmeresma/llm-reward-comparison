@@ -4,3 +4,5 @@ reward_model: "ground_truth" # or "implicit"
 prompt_version: "implicit_binary_v1"
 llm_provider: "openrouter" # or "mistral"
 seed: 42
+crafter_eval_freq: 50000
+crafter_n_eval_episodes: 20

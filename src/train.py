@@ -7,7 +7,7 @@ from config import load_config, get_project_root, load_prompt
 from env import make_vec_env, make_eval_env
 from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
 from llm_client import LLMClient, create_provider
-from callbacks import SuccessRateCallback
+from callbacks import MiniGridCallback, CrafterCallback
 from environments import get_adapter
 import yaml
 
@@ -38,6 +38,32 @@ def create_reward_model(adapter, config: dict, run_id: str, log_dir: Path) -> Re
     else:
         raise ValueError(f"Unknown reward model: {reward_type}")
     
+def create_callback(adapter, config: dict, eval_env, run_dir: Path):
+    env_id = config["env_string"]
+    
+    if env_id.startswith("MiniGrid"):
+        return MiniGridCallback(
+            adapter=adapter,
+            eval_env=eval_env,
+            eval_freq=config.get("eval_freq", 2000),
+            n_eval_episodes=config.get("n_eval_episodes", 25),
+            success_threshold=config.get("success_threshold", 0.90),
+            csv_path=run_dir / "metrics.csv",
+        )
+        
+    if env_id.startswith("Crafter"):
+        return CrafterCallback(
+            adapter=adapter,
+            eval_env=eval_env,
+            eval_freq=config.get("crafter_eval_freq", 50_000),
+            n_eval_episodes=config.get("crafter_n_eval_episodes", 20),
+            train_episode_csv_path=run_dir / "crafter_train_episodes.csv",
+            train_achievements_csv_path=run_dir / "crafter_train_achievements.csv",
+            eval_csv_path=run_dir / "crafter_eval_metrics.csv",
+        )
+        
+    raise ValueError(f"No callback configured for environment: {env_id}")
+    
 def main():
     config = load_config()
     adapter = get_adapter(config["env_string"])
@@ -60,13 +86,11 @@ def main():
     env = make_vec_env(adapter, config["env_string"], reward_model, seed=seed)
     eval_env = make_eval_env(adapter, config["env_string"], seed=seed+1000)
     
-    callback = SuccessRateCallback(
-        eval_env=eval_env,
-        eval_freq=2000,
-        n_eval_episodes=25,
-        success_threshold=0.90,
-        csv_path=run_dir / "metrics.csv",
+    callback = create_callback(
         adapter=adapter,
+        config=config,
+        eval_env=eval_env,
+        run_dir=run_dir,
     )
     
     # Train
