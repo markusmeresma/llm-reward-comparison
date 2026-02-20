@@ -11,6 +11,7 @@ build/
 venv/
 
 experiments/
+scripts/
 
 # Exploration scripts
 src/explore_*.py

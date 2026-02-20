@@ -24,3 +24,9 @@ Available flags (from `src/config.py`):
 
 - `--env`: `minigrid` | `crafter`
 - `--reward-model`: `ground_truth` | `implicit`
+
+## TensorBoard
+
+```bash
+tensorboard --logdir experiments
+```
