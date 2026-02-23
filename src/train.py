@@ -80,6 +80,9 @@ def main():
     # Build a run directory
     run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     run_name = f"{config['env_alias']}_{config['reward_model']}_seed{seed}_{run_id}"
+    if config["reward_model"] == "implicit":
+        model_tag = config["llm_model"].replace("/", "-")
+        run_name = f"{config['env_alias']}_{config['reward_model']}_{model_tag}_seed{seed}_{run_id}"
     run_dir = project_root / "experiments" / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
     
