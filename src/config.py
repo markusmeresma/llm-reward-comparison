@@ -3,6 +3,13 @@ from typing import Any
 import argparse
 import yaml
 
+ALL_SUPPORTED_MODELS = [
+    "openai/gpt-5-nano",
+    "openai/gpt-5-mini",
+    "openai/gpt-5.2",
+    "mistral-large-2512",
+]
+
 def load_config() -> dict[str, Any]:
     config_path = Path(__file__).parent.parent / "config.yaml"
     with open(config_path) as f:
@@ -41,6 +48,15 @@ def parse_train_args(argv=None) -> argparse.Namespace:
         choices=["ground_truth", "implicit"],
         help="Reward model alias: ground_truth -> ground_truth, implicit -> implicit"
     )
+    parser.add_argument(
+        "--llm-model",
+        required=False,
+        choices=ALL_SUPPORTED_MODELS,
+        help=(
+            "Required for implicit reward model. "
+            f"Supported: {', '.join(ALL_SUPPORTED_MODELS)}"
+        ),
+    )
     return parser.parse_args(argv)
 
 def load_train_config(argv=None) -> dict[str, Any]:
@@ -50,6 +66,18 @@ def load_train_config(argv=None) -> dict[str, Any]:
     env_key = args.env
     env_cfg = raw["envs"][env_key]
     defaults = raw["defaults"]
+    
+    provider = defaults["llm_provider"]
+    
+    # Enforce llm-model only for implicit runs
+    if args.reward_model == "implicit":
+        if not args.llm_model:
+            raise ValueError("--llm-model is required when --reward-model implicit")
+        if args.llm_model not in ALL_SUPPORTED_MODELS:
+            allowed = ", ".join(ALL_SUPPORTED_MODELS)
+            raise ValueError(f"Unsupported --llm-model '{args.llm_model}'. Allowed: {allowed}")
+        
+        
     
     resolved = {
         "env_alias": env_key,
@@ -63,6 +91,9 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "seed": defaults["seed"],
         "segment_length": env_cfg["segment_length"],
     }
+    
+    if args.reward_model == "implicit":
+        resolved["llm_model"] = args.llm_model
     
     # Only minigrid should carry this key
     if "success_threshold" in env_cfg:

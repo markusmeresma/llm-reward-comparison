@@ -29,7 +29,7 @@ def create_reward_model(adapter, config: dict, run_id: str, log_dir: Path) -> Re
         return GroundTruthRewardModel()
     
     elif reward_type == "implicit":
-        provider = create_provider(config["llm_provider"])
+        provider = create_provider(config["llm_provider"], config["llm_model"])
         llm_client = LLMClient(provider, log_dir, run_id)
         return ImplicitRewardModel(
             llm_client=llm_client,

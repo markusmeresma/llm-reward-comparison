@@ -55,7 +55,7 @@ def test_load_train_config_crafter_excludes_success_threshold(monkeypatch):
     monkeypatch.setattr(config, "load_config", _sample_raw_config)
 
     resolved = config.load_train_config(
-        ["--env", "crafter", "--reward-model", "implicit"]
+        ["--env", "crafter", "--reward-model", "implicit", "--llm-model", "openai/gpt-5-mini"]
     )
 
     assert resolved["env_alias"] == "crafter"
@@ -68,6 +68,7 @@ def test_load_train_config_crafter_excludes_success_threshold(monkeypatch):
     assert resolved["prompt_version"] == "v1"
     assert resolved["segment_length"] == 64
     assert resolved["llm_provider"] == "openrouter"
+    assert resolved["llm_model"] == "openai/gpt-5-mini"
     assert resolved["seed"] == 42
 
 

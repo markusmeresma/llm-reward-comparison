@@ -15,6 +15,30 @@ from mistralai.models import MistralError
 import os
 from typing import Optional
 
+SUPPORTED_MODELS_BY_PROVIDER = {
+    "openrouter": {
+        "openai/gpt-5-nano",
+        "openai/gpt-5-mini",
+        "openai/gpt-5.2",
+    },
+    "mistral": {
+        "mistral-large-2512",
+    },
+}
+
+def _validate_provider_model(provider_name: str, model_name: str) -> None:
+    if provider_name not in SUPPORTED_MODELS_BY_PROVIDER:
+        supported = ", ".join(sorted(SUPPORTED_MODELS_BY_PROVIDER))
+        raise ValueError(f"Unknown LLM provider: {provider_name}. Supported: {supported}")
+    
+    allowed = SUPPORTED_MODELS_BY_PROVIDER[provider_name]
+    if model_name not in allowed:
+        allowed_str = ", ".join(sorted(allowed))
+        raise ValueError(
+            f"Model '{model_name}' is not supported for provider '{provider_name}'. "
+            f"Allowed: {allowed_str}"
+        )
+
 def should_retry(e: Exception) -> bool:
     """Retry predicate for transient API failures across both providers."""
     # OpenRouter (requests-based)
@@ -206,24 +230,20 @@ class LLMClient:
             f.write(json.dumps(record) + "\n")
             
             
-def create_provider(provider_name: str) -> LLMProvider:
+def create_provider(provider_name: str, model_name: str) -> LLMProvider:
+    _validate_provider_model(provider_name, model_name)
+    
     if provider_name == "openrouter":
         api_key = os.environ.get("OPEN_ROUTER_API_KEY")
         if not api_key:
             raise ValueError("OPEN_ROUTER_API_KEY is missing")
-        model = os.environ.get("OPENROUTER_MODEL")
-        if not model:
-            raise ValueError("OPENROUTER_MODEL is missing")
-        return OpenRouterProvider(LLMProviderConfig(model=model, api_key=api_key))
+        return OpenRouterProvider(LLMProviderConfig(model=model_name, api_key=api_key))
     
     elif provider_name == "mistral":
         api_key = os.environ.get("MISTRAL_API_KEY")
         if not api_key:
             raise ValueError("MISTRAL_API_KEY is missing")
-        model = os.environ.get("MISTRAL_MODEL")
-        if not model:
-            raise ValueError("MISTRAL_MODEL is missing")
-        return MistralProvider(LLMProviderConfig(model=model, api_key=api_key))
+        return MistralProvider(LLMProviderConfig(model=model_name, api_key=api_key))
     
     else:
         raise ValueError(f"Unknown LLM provider: {provider_name}")
