@@ -8,6 +8,7 @@ from env import make_vec_env, make_eval_env
 from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
 from llm_client import LLMClient, create_provider
 from callbacks import MiniGridCallback, CrafterCallback
+from segment_rollout_buffer import SegmentRolloutBuffer
 from environments import get_adapter
 import yaml
 
@@ -19,7 +20,9 @@ logging.basicConfig(
 load_dotenv()
 
 def create_reward_model(adapter, config: dict, run_id: str, log_dir: Path) -> RewardModel:
-    """Factory for reward models"""
+    """Factory for reward models. Selects between ground truth (environment
+    native rewards) and implicit (segment-based LLM evaluation) based on
+    the --reward-model CLI flag."""
     reward_type = config["reward_model"]
     
     if reward_type == "ground_truth":
@@ -30,15 +33,18 @@ def create_reward_model(adapter, config: dict, run_id: str, log_dir: Path) -> Re
         llm_client = LLMClient(provider, log_dir, run_id)
         return ImplicitRewardModel(
             llm_client=llm_client,
-            env_id=config["env_string"],
             task_prompt=load_prompt(config["env_alias"], config["prompt_version"]),
             adapter=adapter,
+            segment_length=config["segment_length"]
         )
     
     else:
         raise ValueError(f"Unknown reward model: {reward_type}")
     
-def create_callback(adapter, config: dict, eval_env, run_dir: Path):
+def create_callback(adapter, config: dict, eval_env, run_dir: Path, reward_model: RewardModel):
+    """Factory for environment-specific training callbacks.
+    Passes the reward model to CrafterCallback so it can read episode scores
+    in implicit mode (where step-level rewards are always 0.0)."""
     env_id = config["env_string"]
     
     if env_id.startswith("MiniGrid"):
@@ -60,6 +66,7 @@ def create_callback(adapter, config: dict, eval_env, run_dir: Path):
             train_episode_csv_path=run_dir / "crafter_train_episodes.csv",
             train_achievements_csv_path=run_dir / "crafter_train_achievements.csv",
             eval_csv_path=run_dir / "crafter_eval_metrics.csv",
+            reward_model=reward_model,
         )
         
     raise ValueError(f"No callback configured for environment: {env_id}")
@@ -91,13 +98,40 @@ def main():
         config=config,
         eval_env=eval_env,
         run_dir=run_dir,
+        reward_model=reward_model
     )
     
-    # Train
-    model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=str(run_dir / "tensorboard"), seed=seed)
+    ppo_kwargs = dict(
+        policy="CnnPolicy",
+        env=env,
+        verbose=1,
+        tensorboard_log=str(run_dir / "tensorboard"),
+        seed=seed,
+    )
+    
+    # When using implicit rewards, PPO needs a custom rollout buffer that
+    # writes segment scores into step rewards before GAE computation.
+    # min_segment_length=16 floors the per-step divisor to prevent extreme
+    # reward amplification from very short partial segments.
+    if isinstance(reward_model, ImplicitRewardModel):
+        ppo_kwargs["rollout_buffer_class"] = SegmentRolloutBuffer
+        ppo_kwargs["rollout_buffer_kwargs"] = {
+            "reward_model": reward_model,
+            "min_segment_length": 16,
+        }
+        
+    model = PPO(**ppo_kwargs)
+    
+    # Segment length must divide n_steps so that segment boundaries align
+    # with rollout boundaries (no partial segments from misalignment).
+    if isinstance(reward_model, ImplicitRewardModel):
+        segment_length = config["segment_length"]
+        assert model.n_steps % segment_length == 0, (
+            f"n_steps ({model.n_steps}) must be divisible by segment_length ({segment_length})"
+        )
+    
     model.learn(total_timesteps=config["total_timesteps"], callback=callback)
     model.save(run_dir / "model")
-    
     logging.info(f"Run complete: {run_dir}")
     
 

@@ -1,3 +1,9 @@
+# segment_length: number of steps per LLM evaluation segment (K).
+# Controls temporal reward density — must be well below typical episode
+# length to provide intra-episode reward variation for GAE.
+# Must divide PPO's n_steps (default 2048).
+# Crafter: K=64 gives ~2-3 segments per episode (~170 avg steps).
+# MiniGrid: K=16 gives ~1-3 segments per episode (~20-50 steps).
 defaults:
   llm_provider: "openrouter" # or "mistral"
   seed: 42
@@ -10,10 +16,12 @@ envs:
     n_eval_episodes: 25
     success_threshold: 0.90
     prompt_version: "v1"
+    segment_length: 16
 
   crafter:
     env_string: "CrafterReward-v1"
-    total_timesteps: 1000000
+    total_timesteps: 2048
     eval_freq: 50000
     n_eval_episodes: 20
     prompt_version: "v1"
+    segment_length: 64

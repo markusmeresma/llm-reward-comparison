@@ -1,26 +1,42 @@
 from environments.minigrid_adapter import MiniGridAdapter
-from models import Trajectory
+from segment import SegmentResult
 
 
-def test_trajectory_to_text_formats_minigrid_episode():
+def test_segment_to_text_ongoing_episode():
     adapter = MiniGridAdapter()
-    trajectory = Trajectory(
-        initial_state={"pos": (1, 1), "dir": 0, "goal_pos": (3, 3)},
+    adapter._goal_pos = (3, 3)
+    result = SegmentResult(
         steps=[
             {"action": 2, "pos": (1, 2), "dir": 0},
             {"action": 0, "pos": (1, 2), "dir": 3},
         ],
+        episode_ended=False,
+        termination_reason=None,
     )
 
-    text = adapter.trajectory_to_text(
-        trajectory, "MiniGrid-Empty-5x5-v0", terminated=True, truncated=False
+    text = adapter.segment_to_text(result)
+
+    assert "Segment: 2 steps (episode ongoing)" in text
+    assert "goal=(3, 3)" in text
+    assert "Reached goal" not in text
+
+
+def test_segment_to_text_reached_goal():
+    adapter = MiniGridAdapter()
+    adapter._goal_pos = (3, 3)
+    result = SegmentResult(
+        steps=[
+            {"action": 2, "pos": (2, 3), "dir": 0},
+            {"action": 2, "pos": (3, 3), "dir": 0},
+        ],
+        episode_ended=True,
+        termination_reason=None,
     )
 
-    assert "Environment: MiniGrid-Empty-5x5-v0" in text
-    assert "Start: pos=(1, 1), dir=0" in text
-    assert "Goal: pos=(3, 3)" in text
-    assert " 0: forward -> pos=(1, 2)" in text
-    assert " 1: turn_left -> pos=(1, 2)" in text
+    text = adapter.segment_to_text(result)
+
+    assert "episode ended" in text
+    assert "Reached goal: yes" in text
 
 
 def test_is_success_depends_on_positive_reward():

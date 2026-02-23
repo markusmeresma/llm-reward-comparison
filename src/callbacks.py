@@ -80,6 +80,17 @@ class MiniGridCallback(BaseCallback):
     
 
 class CrafterCallback(BaseCallback):
+    """Training and evaluation callback for the Crafter environment.
+    
+    Logs per-episode training metrics (return, achievements, termination reason)
+    and periodically runs deterministic evaluation episodes to compute the
+    Crafter score (geometric mean of per-achievement success rates).
+    
+    When using implicit reward mode, self.locals["rewards"] is always 0.0
+    during data collection (real rewards are assigned retroactively by the buffer).
+    The _get_train_return() method handles this by reading the cumulative
+    episode score from the reward model instead of the running reward accumulator.
+    """
     def __init__(
         self, 
         adapter: EnvAdapter,
@@ -88,7 +99,8 @@ class CrafterCallback(BaseCallback):
         n_eval_episodes: int, 
         train_episode_csv_path: Path, 
         train_achievements_csv_path: Path, 
-        eval_csv_path: Path
+        eval_csv_path: Path,
+        reward_model=None,
     ):
             super().__init__()
             self.adapter = adapter
@@ -98,6 +110,7 @@ class CrafterCallback(BaseCallback):
             self.train_episode_csv_path = Path(train_episode_csv_path)
             self.train_achievements_csv_path = Path(train_achievements_csv_path)
             self.eval_csv_path = Path(eval_csv_path)
+            self.reward_model = reward_model
             
             self.start_time = None
             self.episode_id = 0
@@ -160,6 +173,18 @@ class CrafterCallback(BaseCallback):
                 "Expected 'timeout' or 'died'."
             )
         return reason
+    
+    def _get_train_return(self) -> float:
+        """Get the training return for the just-completed episode.
+        
+        In implicit mode, step rewards are always 0.0 (assigned retroactively
+        by the buffer), so _running_train_return would always be 0. Instead,
+        read the sum of segment scores from the reward model.
+        In ground truth mode, use the standard running accumulator.
+        """
+        if self.reward_model is not None:
+            return self.reward_model._last_episode_score
+        return self._running_train_return
         
     def _on_step(self) -> bool:
         reward = float(self.locals["rewards"][0])
@@ -170,6 +195,8 @@ class CrafterCallback(BaseCallback):
         self._running_episode_len += 1
         
         if done:
+            train_return = self._get_train_return()
+            
             achievements = dict(info.get("achievements", {}))
             bits = self.adapter.achievements_binary(achievements)
             num_unlocked = int(sum(bits))
@@ -182,7 +209,7 @@ class CrafterCallback(BaseCallback):
                     self.episode_id,
                     self.num_timesteps,
                     self._running_episode_len,
-                    round(self._running_train_return, 6),
+                    round(train_return, 6),
                     num_unlocked,
                     term_reason,
                 ])
@@ -197,7 +224,7 @@ class CrafterCallback(BaseCallback):
                 ])
                 
             # TensorBoard training logs
-            self.logger.record("train/train_episode_return", self._running_train_return)
+            self.logger.record("train/train_episode_return", train_return)
             self.logger.record("train/episode_len", self._running_episode_len)
             self.logger.record("train/num_achievements_unlocked", num_unlocked)
             self.logger.dump(self.num_timesteps)
@@ -281,10 +308,11 @@ class CrafterCallback(BaseCallback):
             ])
             
     def _compute_crafter_score(self, success_rates: np.ndarray) -> float:
-        """
-        Crafter analysis-style score in percent space:
-        exp(mean(log(1 + success_rate_i))) - 1
-        where success_rate_i in [0, 100].
+        """Crafter score: geometric mean of (1 + success_rate_i) - 1, in percent space.
+        
+        This is the standard Crafter benchmark metric from Hafner (2022).
+        Uses log-space computation for numerical stability.
+        Input success_rates are in [0, 100] (percent).
         """
         success_rates = np.asarray(success_rates, dtype=float)
         if success_rates.ndim != 1:

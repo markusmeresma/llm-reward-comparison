@@ -16,14 +16,16 @@ def _sample_raw_config():
                 "eval_freq": 2_000,
                 "n_eval_episodes": 25,
                 "success_threshold": 0.90,
-                "prompt_version": "implicit_binary_minigrid_v1",
+                "prompt_version": "v1",
+                "segment_length": 16,
             },
             "crafter": {
                 "env_string": "CrafterReward-v1",
                 "total_timesteps": 1_000_000,
                 "eval_freq": 50_000,
                 "n_eval_episodes": 20,
-                "prompt_version": "implicit_binary_crafter_v1",
+                "prompt_version": "v1",
+                "segment_length": 64,
             },
         },
     }
@@ -43,7 +45,8 @@ def test_load_train_config_minigrid_includes_success_threshold(monkeypatch):
     assert resolved["eval_freq"] == 2_000
     assert resolved["n_eval_episodes"] == 25
     assert resolved["success_threshold"] == pytest.approx(0.90)
-    assert resolved["prompt_version"] == "implicit_binary_minigrid_v1"
+    assert resolved["prompt_version"] == "v1"
+    assert resolved["segment_length"] == 16
     assert resolved["llm_provider"] == "openrouter"
     assert resolved["seed"] == 42
 
@@ -62,7 +65,8 @@ def test_load_train_config_crafter_excludes_success_threshold(monkeypatch):
     assert resolved["eval_freq"] == 50_000
     assert resolved["n_eval_episodes"] == 20
     assert "success_threshold" not in resolved
-    assert resolved["prompt_version"] == "implicit_binary_crafter_v1"
+    assert resolved["prompt_version"] == "v1"
+    assert resolved["segment_length"] == 64
     assert resolved["llm_provider"] == "openrouter"
     assert resolved["seed"] == 42
 

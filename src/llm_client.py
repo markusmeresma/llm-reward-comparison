@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 from requests.exceptions import Timeout, ConnectionError, HTTPError, RequestException
+from llm_schemas.score_response import segment_score_response
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime
@@ -15,6 +16,7 @@ import os
 from typing import Optional
 
 def should_retry(e: Exception) -> bool:
+    """Retry predicate for transient API failures across both providers."""
     # OpenRouter (requests-based)
     if isinstance(e, (Timeout, ConnectionError)):
         return True
@@ -25,8 +27,7 @@ def should_retry(e: Exception) -> bool:
     if isinstance(e, (httpx.TimeoutException, httpx.ConnectError)):
         return True
     if isinstance(e, MistralError):
-        return e.status_code in {408, 429, 500, 502, 503, 504}
-        
+        return e.status_code in {408, 429, 500, 502, 503, 504}    
     return False
     
 @dataclass
@@ -42,22 +43,24 @@ class LLMResponse:
     
 @dataclass
 class LLMProviderConfig:
-    """Shared config fields for any provider."""
+    """Shared config for any LLM provider (model name + API key)."""
     model: str
     api_key: str
    
     
 class LLMProvider(ABC):
-    """Abstract provider only responsible for making the API call."""
+    """Abstract LLM provider — responsible only for making the API call.
+    Concrete implementations handle provider-specific request/response formats."""
     def __init__(self, config: LLMProviderConfig):
         self.config = config
         
     @abstractmethod
-    def chat_complete(self, messages: list[dict]) -> LLMResponse:
+    def chat_complete(self, messages: list[dict], response_format: dict) -> LLMResponse:
         pass
     
     
 class OpenRouterProvider(LLMProvider):
+    """LLM provider using the OpenRouter API (requests-based HTTP calls)."""
     BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
     
     def __init__(self, config: LLMProviderConfig, timeout: tuple[int, int] = (5, 30)):
@@ -69,12 +72,11 @@ class OpenRouterProvider(LLMProvider):
             "Content-Type": "application/json"
         })
         
-    def chat_complete(self, messages: list[dict]) -> LLMResponse:
-        from llm_schemas.score_response import score_response
+    def chat_complete(self, messages: list[dict], response_format: dict) -> LLMResponse:
         body = {
             "model": self.config.model,
             "messages": messages,
-            "response_format": score_response
+            "response_format": response_format,
         }
         response = self.session.post(self.BASE_URL, json=body, timeout=self.timeout)
         response.raise_for_status()
@@ -91,11 +93,12 @@ class OpenRouterProvider(LLMProvider):
         )
     
 class MistralProvider(LLMProvider):
+    """LLM provider using the Mistral SDK (httpx-based)."""
     def __init__(self, config: LLMProviderConfig):
         super().__init__(config)
         self.client = Mistral(api_key=self.config.api_key)
         
-    def chat_complete(self, messages: list[dict]) -> LLMResponse:
+    def chat_complete(self, messages: list[dict], response_format: dict) -> LLMResponse:
         response = self.client.chat.complete(
             model=self.config.model,
             messages=messages,
@@ -113,6 +116,13 @@ class MistralProvider(LLMProvider):
     
     
 class LLMClient:
+    """High-level client for LLM-based segment evaluation.
+    
+    Handles prompt formatting, response parsing, retry logic, and per-call
+    JSONL logging. On LLM failure (all retries exhausted), returns score=0.0
+    so training continues — the affected steps get zero reward and the policy
+    gradient is driven by the value function baseline only.
+    """
     def __init__(self, provider: LLMProvider, log_dir: Path, run_id: str) -> None:
         self.provider = provider
         self.logger = logging.getLogger(__name__)
@@ -123,57 +133,67 @@ class LLMClient:
     def get_request_body(self, task_prompt: str) -> list[dict]:
         return [{ "role": "user", "content": task_prompt }]
         
-    def parse_implicit_response(self, llm_response: LLMResponse) -> float:
-        """Parse LLM response to scalar value. Raise ValueError on failure."""
+    def parse_segment_response(self, llm_response: LLMResponse) -> tuple[float, str]:
+        """Parse JSON response into (score, reasoning). Raises ValueError on
+        malformed responses (missing fields, out-of-range score, invalid JSON)."""
         content = llm_response.content
-        
         try:
             data = json.loads(content)
         except json.JSONDecodeError:
             raise ValueError(f"Response not valid JSON: {content[:200]}")
-        
-        
+
         score = data.get("score")
         if score is None:
             raise ValueError(f"Missing 'score' in response: {data}")
-        
         if not isinstance(score, (int, float)) or not (0 <= score <= 1):
             raise ValueError(f"Invalid score (must be 0-1): {score}")
         
-        return float(score)
+        reasoning = data.get("reasoning", "")
+        return float(score), str(reasoning)
+                             
         
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception(should_retry)
     )
-    def evaluate_trajectory(self, prompt: str) -> float:
-        """Evaluate agent trajectory"""
+    def _call_with_retry(self, messages: list[dict], response_format: dict) -> LLMResponse:
+        """Make an LLM API call with exponential backoff retry on transient errors."""
+        return self.provider.chat_complete(messages, response_format)
+    
+    def evaluate_segment(self, prompt: str, segment_length: int) -> tuple[float, str]:
+        """Evaluate a segment summary via LLM. Returns (score, reasoning).
+        On failure, returns (0.0, "LLM_FAILURE") — neutral score so training
+        continues without mixing reward signals from different sources."""
         messages = self.get_request_body(prompt)
-        
-        self.logger.info("Making LLM request")
         start = time.monotonic()
+        
         try:
-            llm_response = self.provider.chat_complete(messages)
+            llm_response = self._call_with_retry(messages, segment_score_response)
             latency = time.monotonic() - start
-            score = self.parse_implicit_response(llm_response)
-            
-            self._log_call(prompt, llm_response, score, latency, error=None)
-            return score
+            score, reasoning = self.parse_segment_response(llm_response)
+            self._log_call(prompt, llm_response, score, latency,
+                           error=None, reasoning=reasoning, segment_length=segment_length)
+            return score, reasoning
         
-        except (RequestException, MistralError, httpx.RequestError) as e:
+        except Exception as e:
             latency = time.monotonic() - start
-            self._log_call(prompt, None, None, latency, error=str(e))
-            self.logger.error("Request failed", exc_info=True)
-            raise
+            self.logger.warning(f"Segment evaluation failed: {e}")
+            self._log_call(prompt, None, 0.0, latency,
+                           error=str(e), reasoning="LLM_FAILURE", segment_length=segment_length)
+            return 0.0, "LLM_FAILURE"
         
-    def _log_call(self, prompt, response, score, latency, error):
+    def _log_call(self, prompt, response, score, latency, error,
+                  reasoning=None, segment_length=None):
+        """Append a structured JSONL record for every LLM call (success or failure)."""
         record = {
             "timestamp": datetime.now().isoformat(),
             "model": self.provider.config.model,
             "prompt": prompt,
             "response_content": response.content if response else None,
             "score": score,
+            "reasoning": reasoning,
+            "segment_length": segment_length,
             "latency_s": round(latency, 3),
             "usage": {
                 "prompt_tokens": response.usage.prompt_tokens,

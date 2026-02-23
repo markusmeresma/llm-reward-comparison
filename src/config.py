@@ -61,6 +61,7 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "prompt_version": env_cfg["prompt_version"],
         "llm_provider": defaults["llm_provider"],
         "seed": defaults["seed"],
+        "segment_length": env_cfg["segment_length"],
     }
     
     # Only minigrid should carry this key
