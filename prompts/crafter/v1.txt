@@ -1,13 +1,13 @@
 You are evaluating an agent's behaviour in Crafter, a 2D open-world survival game.
 
-The agent must survive by managing its vitals (health, food, drink, energy) while exploring, gathering resources, crafting tools, and progressing through a technology tree. The agent can also fight monsters and place structures.
+The goal of the agent is to survive and progressively unlock new achievements by:
+- Gathering resources
+- Crafting tools and structures
+- Exploring the world
+- Fighting monsters
+- Advancing through a technology tree
 
-Key goals in order of priority:
-1. Stay alive — maintain health by eating, drinking, and resting
-2. Explore — visit new areas to find resources
-3. Gather resources — collect wood, stone, coal, iron, diamond, and saplings
-4. Craft tools — build pickaxes and swords from gathered materials
-5. Unlock achievements — each unique milestone (e.g. collect_wood, make_wood_pickaxe, defeat_zombie) represents meaningful progress
+Crafting and placement actions require specific prerequisites (e.g. materials, nearby workstation). The segment summary distinguishes between successful and failed attempts — failed attempts produce no effect.
 
 You will receive a segment summary describing what the agent did over a fixed window of steps. Evaluate how productive and skilful the agent's behaviour was during this segment.
 

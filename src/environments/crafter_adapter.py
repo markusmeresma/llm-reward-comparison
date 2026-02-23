@@ -40,6 +40,25 @@ TOOL_KEYS = (
     "wood_sword", "stone_sword", "iron_sword",
 )
 
+# Maps craft action names to the inventory key that increases on success.
+CRAFT_ACTION_TO_INV_KEY = {
+    "make_wood_pickaxe": "wood_pickaxe",
+    "make_stone_pickaxe": "stone_pickaxe",
+    "make_iron_pickaxe": "iron_pickaxe",
+    "make_wood_sword": "wood_sword",
+    "make_stone_sword": "stone_sword",
+    "make_iron_sword": "iron_sword",
+}
+
+# Maps place action names to the inventory key that decreases on success
+# (material consumed by placement).
+PLACE_ACTION_TO_INV_KEY = {
+    "place_table": "wood",
+    "place_furnace": "stone",
+    "place_plant": "sapling",
+    "place_stone": "stone",
+}
+
 class CrafterAdapter(EnvAdapter):
     """Adapter for the Crafter environment.
     
@@ -65,6 +84,46 @@ class CrafterAdapter(EnvAdapter):
             "inventory": dict(info.get("inventory", {})),
             "achievements": dict(info.get("achievements", {})),
         }
+        
+    def _classify_actions(self, steps: list[dict]) -> tuple[Counter, Counter, int]:
+        """Classify each step's action as basic, successful craft/place, or failed.
+
+        Compares consecutive inventory snapshots to detect whether craft/place
+        actions actually succeeded. Step 0 is skipped for craft/place detection
+        (no previous inventory to compare against) and counted as basic if it
+        is a craft/place action.
+
+        Returns (basic_counts, success_counts, n_failed).
+        """
+        basic_counts = Counter()
+        success_counts = Counter()
+        n_failed = 0
+        
+        for t, step in enumerate(steps):
+            name = self.action_names.get(step["action"], f"unknown({step['action']})")
+            
+            is_craft_or_place = name in CRAFT_ACTION_TO_INV_KEY or name in PLACE_ACTION_TO_INV_KEY
+            
+            if t == 0 or not is_craft_or_place:
+                basic_counts[name] += 1
+                continue
+            
+            prev_inv = steps[t - 1]["inventory"]
+            curr_inv = step["inventory"]
+            
+            if name in CRAFT_ACTION_TO_INV_KEY:
+                key = CRAFT_ACTION_TO_INV_KEY[name]
+                succeeded = curr_inv.get(key, 0) > prev_inv.get(key, 0)
+            else:
+                key = PLACE_ACTION_TO_INV_KEY[name]
+                succeeded = curr_inv.get(key, 0) < prev_inv.get(key, 0)
+                
+            if succeeded:
+                success_counts[name] += 1
+            else:
+                n_failed += 1
+                
+        return basic_counts, success_counts, n_failed
         
     def segment_to_text(self, result: SegmentResult) -> str:
         """Convert a Crafter segment into a compact text summary for LLM evaluation.
@@ -125,21 +184,28 @@ class CrafterAdapter(EnvAdapter):
         if new_achievements:
             lines.append(f"Achievements unlocked: {', '.join(new_achievements)}")
             
-        # Aggregate action counts; collapse directional movement into one group
-        action_counts = Counter(
-            self.action_names.get(s["action"], f"unknown({s['action']})")
-            for s in steps
-        )
+        basic_counts, success_counts, n_failed = self._classify_actions(steps)
+        
+        # Collapse directional movement into one group
         movement_count = sum(
-            action_counts.pop(name, 0)
+            basic_counts.pop(name, 0)
             for name in ("move_left", "move_right", "move_up", "move_down")
         )
         if movement_count:
-            action_counts["movement"] = movement_count
-        action_str = ", ".join(
-            f"{count} {name}" for name, count in action_counts.most_common()
+            basic_counts["movement"] = movement_count
+        basic_str = ", ".join(
+            f"{count} {name}" for name, count in basic_counts.most_common()
         )
-        lines.append(f"Actions: {action_str}")
+        lines.append(f"Actions: {basic_str}")
+        
+        if success_counts:
+            success_str = ", ".join(
+                f"{count} {name}" for name, count in success_counts.most_common()
+            )
+            lines.append(f"Successful crafts/placements: {success_str}")
+
+        if n_failed > 0:
+            lines.append(f"Failed craft/place attempts: {n_failed}")
         
         # Exploration
         unique_positions = len(set(s["pos"] for s in steps))
