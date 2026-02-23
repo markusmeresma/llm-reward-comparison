@@ -89,9 +89,8 @@ class CrafterAdapter(EnvAdapter):
         """Classify each step's action as basic, successful craft/place, or failed.
 
         Compares consecutive inventory snapshots to detect whether craft/place
-        actions actually succeeded. Step 0 is skipped for craft/place detection
-        (no previous inventory to compare against) and counted as basic if it
-        is a craft/place action.
+        actions actually succeeded. Craft/place actions at step 0 are counted
+        as failed (no previous inventory to compare against).
 
         Returns (basic_counts, success_counts, n_failed).
         """
@@ -104,8 +103,17 @@ class CrafterAdapter(EnvAdapter):
             
             is_craft_or_place = name in CRAFT_ACTION_TO_INV_KEY or name in PLACE_ACTION_TO_INV_KEY
             
-            if t == 0 or not is_craft_or_place:
+            if not is_craft_or_place:
                 basic_counts[name] += 1
+                continue
+            
+            # At t==0 there is no previous inventory to compare against,
+            # so we can't verify whether the craft/place succeeded.
+            # Count it as failed to avoid leaking unverified action names
+            # into the Actions line, where the LLM may misinterpret them
+            # as successful crafts.
+            if t == 0:
+                n_failed += 1
                 continue
             
             prev_inv = steps[t - 1]["inventory"]
