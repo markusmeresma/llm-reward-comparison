@@ -88,6 +88,7 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "n_eval_episodes": env_cfg["n_eval_episodes"],
         "prompt_version": env_cfg["prompt_version"],
         "llm_provider": defaults["llm_provider"],
+        "llm_temperature": defaults["llm_temperature"],
         "seed": defaults["seed"],
         "segment_length": env_cfg["segment_length"],
     }

@@ -70,6 +70,7 @@ class LLMProviderConfig:
     """Shared config for any LLM provider (model name + API key)."""
     model: str
     api_key: str
+    temperature: float = 0.0
    
     
 class LLMProvider(ABC):
@@ -101,6 +102,7 @@ class OpenRouterProvider(LLMProvider):
             "model": self.config.model,
             "messages": messages,
             "response_format": response_format,
+            "temperature": self.config.temperature,
         }
         response = self.session.post(self.BASE_URL, json=body, timeout=self.timeout)
         response.raise_for_status()
@@ -126,7 +128,8 @@ class MistralProvider(LLMProvider):
         response = self.client.chat.complete(
             model=self.config.model,
             messages=messages,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            temperature=self.config.temperature,
         )
         
         return LLMResponse(
@@ -230,20 +233,20 @@ class LLMClient:
             f.write(json.dumps(record) + "\n")
             
             
-def create_provider(provider_name: str, model_name: str) -> LLMProvider:
+def create_provider(provider_name: str, model_name: str, temperature: float = 0.0) -> LLMProvider:
     _validate_provider_model(provider_name, model_name)
     
     if provider_name == "openrouter":
         api_key = os.environ.get("OPEN_ROUTER_API_KEY")
         if not api_key:
             raise ValueError("OPEN_ROUTER_API_KEY is missing")
-        return OpenRouterProvider(LLMProviderConfig(model=model_name, api_key=api_key))
+        return OpenRouterProvider(LLMProviderConfig(model=model_name, api_key=api_key, temperature=temperature))
     
     elif provider_name == "mistral":
         api_key = os.environ.get("MISTRAL_API_KEY")
         if not api_key:
             raise ValueError("MISTRAL_API_KEY is missing")
-        return MistralProvider(LLMProviderConfig(model=model_name, api_key=api_key))
+        return MistralProvider(LLMProviderConfig(model=model_name, api_key=api_key, temperature=temperature))
     
     else:
         raise ValueError(f"Unknown LLM provider: {provider_name}")
