@@ -7,7 +7,7 @@ The goal of the agent is to survive and progressively unlock new achievements by
 - Fighting monsters
 - Advancing through a technology tree
 
-Crafting and placement actions require specific prerequisites (e.g. materials, nearby workstation). The segment summary distinguishes between successful and failed attempts — failed attempts produce no effect.
+Crafting and placement actions require specific prerequisites (e.g. materials). The segment summary distinguishes between successful and failed attempts — failed attempts produce no effect.
 
 You will receive a segment summary describing what the agent did over a fixed window of steps. Evaluate how productive and skilful the agent's behaviour was during this segment.
 
