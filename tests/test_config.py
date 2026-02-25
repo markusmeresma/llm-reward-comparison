@@ -6,7 +6,7 @@ import config
 def _sample_raw_config():
     return {
         "defaults": {
-            "llm_provider": "openrouter",
+            "llm_temperature": 0.0,
             "seed": 42,
         },
         "envs": {
@@ -47,7 +47,7 @@ def test_load_train_config_minigrid_includes_success_threshold(monkeypatch):
     assert resolved["success_threshold"] == pytest.approx(0.90)
     assert resolved["prompt_version"] == "v1"
     assert resolved["segment_length"] == 16
-    assert resolved["llm_provider"] == "openrouter"
+    assert "llm_provider" not in resolved
     assert resolved["seed"] == 42
 
 
@@ -69,6 +69,7 @@ def test_load_train_config_crafter_excludes_success_threshold(monkeypatch):
     assert resolved["segment_length"] == 64
     assert resolved["llm_provider"] == "openrouter"
     assert resolved["llm_model"] == "openai/gpt-5-mini"
+    assert resolved["llm_temperature"] == 0.0
     assert resolved["seed"] == 42
 
 

@@ -10,6 +10,22 @@ ALL_SUPPORTED_MODELS = [
     "mistral-large-2512",
 ]
 
+PROVIDER_BY_MODEL = {
+    "openai/gpt-5-nano": "openrouter",
+    "openai/gpt-5-mini": "openrouter",
+    "openai/gpt-5.2": "openrouter",
+    "mistral-large-2512": "mistral",
+}
+
+
+def infer_provider_for_model(model_name: str) -> str:
+    provider = PROVIDER_BY_MODEL.get(model_name)
+    if not provider:
+        allowed = ", ".join(ALL_SUPPORTED_MODELS)
+        raise ValueError(f"Unsupported --llm-model '{model_name}'. Allowed: {allowed}")
+    return provider
+
+
 def load_config() -> dict[str, Any]:
     config_path = Path(__file__).parent.parent / "config.yaml"
     with open(config_path) as f:
@@ -67,7 +83,7 @@ def load_train_config(argv=None) -> dict[str, Any]:
     env_cfg = raw["envs"][env_key]
     defaults = raw["defaults"]
     
-    provider = defaults["llm_provider"]
+    provider = None
     
     # Enforce llm-model only for implicit runs
     if args.reward_model == "implicit":
@@ -76,8 +92,8 @@ def load_train_config(argv=None) -> dict[str, Any]:
         if args.llm_model not in ALL_SUPPORTED_MODELS:
             allowed = ", ".join(ALL_SUPPORTED_MODELS)
             raise ValueError(f"Unsupported --llm-model '{args.llm_model}'. Allowed: {allowed}")
-        
-        
+        provider = infer_provider_for_model(args.llm_model)
+
     
     resolved = {
         "env_alias": env_key,
@@ -87,13 +103,13 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "eval_freq": env_cfg["eval_freq"],
         "n_eval_episodes": env_cfg["n_eval_episodes"],
         "prompt_version": env_cfg["prompt_version"],
-        "llm_provider": defaults["llm_provider"],
         "llm_temperature": defaults["llm_temperature"],
         "seed": defaults["seed"],
         "segment_length": env_cfg["segment_length"],
     }
     
     if args.reward_model == "implicit":
+        resolved["llm_provider"] = provider
         resolved["llm_model"] = args.llm_model
     
     # Only minigrid should carry this key
