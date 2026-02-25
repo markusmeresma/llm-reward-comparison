@@ -21,7 +21,7 @@ envs:
 
   crafter:
     env_string: "CrafterReward-v1"
-    total_timesteps: 2048
+    total_timesteps: 100000
     eval_freq: 50000
     n_eval_episodes: 20
     prompt_version: "v1"

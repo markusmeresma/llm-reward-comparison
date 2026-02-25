@@ -9,7 +9,7 @@ The goal of the agent is to survive and progressively unlock new achievements by
 
 Crafting and placement actions require specific prerequisites (e.g. materials). The segment summary distinguishes between successful and failed attempts — failed attempts produce no effect.
 
-You will receive a segment summary describing what the agent did over a fixed window of steps. Evaluate how productive and skilful the agent's behaviour was during this segment.
+You will receive a segment summary describing what the agent did over a fixed window of steps. Evaluate the progress the agent is making.
 
 A high score (close to 1.0) means the agent made meaningful progress: unlocking new achievements, gathering resources, crafting, exploring, or maintaining vitals effectively.
 A low score (close to 0.0) means the agent wasted time: standing still, losing health without reason, or making no progress.
