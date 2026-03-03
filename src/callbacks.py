@@ -4,6 +4,7 @@ import csv
 from pathlib import Path
 import time
 from environments.adapter import EnvAdapter
+from rewards import ImplicitRewardModel
 
 class MiniGridCallback(BaseCallback):
     def __init__(
@@ -182,7 +183,7 @@ class CrafterCallback(BaseCallback):
         read the sum of segment scores from the reward model.
         In ground truth mode, use the standard running accumulator.
         """
-        if self.reward_model is not None:
+        if isinstance(self.reward_model, ImplicitRewardModel):
             return self.reward_model._last_episode_score
         return self._running_train_return
         
