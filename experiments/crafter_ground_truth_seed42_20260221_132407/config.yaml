@@ -1,0 +1,9 @@
+env_alias: crafter
+env_string: CrafterReward-v1
+eval_freq: 50000
+llm_provider: openrouter
+n_eval_episodes: 20
+prompt_version: v1
+reward_model: ground_truth
+seed: 42
+total_timesteps: 1000000
