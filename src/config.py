@@ -79,6 +79,12 @@ def parse_train_args(argv=None) -> argparse.Namespace:
         default=None,
         help="Random seed (overrides config.yaml default)",
     )
+    parser.add_argument(
+        "--total-timesteps",
+        type=int,
+        default=None,
+        help="Total training timesteps (overrides config.yaml)",
+    )
     return parser.parse_args(argv)
 
 def load_train_config(argv=None) -> dict[str, Any]:
@@ -113,6 +119,9 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "seed": defaults["seed"],
         "segment_length": env_cfg["segment_length"],
     }
+    
+    if args.total_timesteps is not None:
+        resolved["total_timesteps"] = args.total_timesteps
     
     if args.seed is not None:
         resolved["seed"] = args.seed
