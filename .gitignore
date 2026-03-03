@@ -10,8 +10,20 @@ build/
 .venv/
 venv/
 
-experiments/
-scripts/
+# Ignore all experiment contents by default
+experiments/**
+
+# Track specific experiment runs
+# 1M timesteps, implicit reward with GPT 5.2, seed=42
+!experiments/crafter_implicit_openai-gpt-5.2_seed42_20260225_090107
+# 1M timesteps, ground truth, seed=42
+!experiments/crafter_ground_truth_seed42_20260221_132407
+
+# Ignore all scripts by default
+scripts/**
+
+# Track specific useful scripts
+!scripts/run_seeds.sh
 
 # Exploration scripts
 src/explore_*.py
