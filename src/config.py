@@ -73,6 +73,12 @@ def parse_train_args(argv=None) -> argparse.Namespace:
             f"Supported: {', '.join(ALL_SUPPORTED_MODELS)}"
         ),
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed (overrides config.yaml default)",
+    )
     return parser.parse_args(argv)
 
 def load_train_config(argv=None) -> dict[str, Any]:
@@ -107,6 +113,9 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "seed": defaults["seed"],
         "segment_length": env_cfg["segment_length"],
     }
+    
+    if args.seed is not None:
+        resolved["seed"] = args.seed
     
     if args.reward_model == "implicit":
         resolved["llm_provider"] = provider

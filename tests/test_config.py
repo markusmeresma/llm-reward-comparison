@@ -73,6 +73,16 @@ def test_load_train_config_crafter_excludes_success_threshold(monkeypatch):
     assert resolved["seed"] == 42
 
 
+def test_load_train_config_seed_override(monkeypatch):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+
+    resolved = config.load_train_config(
+        ["--env", "minigrid", "--reward-model", "ground_truth", "--seed", "123"]
+    )
+
+    assert resolved["seed"] == 123
+
+
 def test_load_train_config_rejects_invalid_reward_model(monkeypatch):
     monkeypatch.setattr(config, "load_config", _sample_raw_config)
 
