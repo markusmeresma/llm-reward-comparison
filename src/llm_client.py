@@ -140,6 +140,19 @@ class MistralProvider(LLMProvider):
                 total_tokens=response.usage.total_tokens
             ) if response.usage else None
         )
+        
+    def __getstate__(self):
+        """Exclude the live Mistral SDK client from pickling — it holds an
+        httpx connection pool with an unpicklable _thread.RLock."""
+        state = self.__dict__.copy()
+        del state["client"]
+        return state
+    
+    def __setstate__(self, state):
+        """Restore instance from pickled state, recreating a fresh Mistral
+        client from the saved config."""
+        self.__dict__.update(state)
+        self.client = Mistral(api_key=self.config.api_key)
     
     
 class LLMClient:
