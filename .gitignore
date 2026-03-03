@@ -20,3 +20,6 @@ src/explore_*.py
 .idea/
 *.swp
 .vscode/
+
+# MacOS
+.DS_Store
