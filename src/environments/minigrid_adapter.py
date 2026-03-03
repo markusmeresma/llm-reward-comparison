@@ -35,11 +35,18 @@ class MiniGridAdapter(EnvAdapter):
         }
         
     def extract_step_state(self, env, action, info):
+        """Extract per-step state from MiniGrid.
+    
+        Includes goal_pos (constant per episode, cached on reset) so that
+        the explicit reward function can compute distance-based rewards
+        without needing a separate initial_state parameter.
+        """
         unwrapped = env.unwrapped
         return {
             "action": action,
             "pos": unwrapped.agent_pos,
             "dir": unwrapped.agent_dir,
+            "goal_pos": self._goal_pos,
         }
         
     def segment_to_text(self, result: SegmentResult) -> str:

@@ -14,10 +14,10 @@ class EnvAdapter(ABC):
         """Create the base Gymnasium env with correct obs wrappers applied."""
         pass
     
-    @abstractmethod
     def extract_initial_state(self, env: gym.Env) -> dict:
-        """Called on env reset. Adapters can cache env state here (e.g. goal position)."""
-        pass
+        """Called on env reset. Adapters can cache env state here (e.g. goal position).
+        Default is a no-op."""
+        return {}
     
     @abstractmethod
     def extract_step_state(self, env: gym.Env, action: int, info: dict) -> dict:

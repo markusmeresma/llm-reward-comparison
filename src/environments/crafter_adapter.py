@@ -70,11 +70,6 @@ class CrafterAdapter(EnvAdapter):
         env = GymV21CompatibilityV0(env=gym_env)
         return env
     
-    # NOTE TO SELF - may need to extract info for crafter somehow else then
-    def extract_initial_state(self, env):
-        # Crafter doesn't provide info on reset; return empty state
-        return {}
-    
     def extract_step_state(self, env: old_gym.Env, action: int, info: dict) -> dict:
         """Extract per-step state from Crafter's info dict.
         Stores action, position, inventory (16 items), and achievements (22)."""
