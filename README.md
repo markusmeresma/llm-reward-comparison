@@ -108,6 +108,15 @@ python src/train.py --env minigrid --reward-model ground_truth --seed 43 --total
 | `--seed` | integer | Overrides `config.yaml` default |
 | `--total-timesteps` | integer | Overrides `config.yaml` default |
 
+### Adding a new LLM model
+
+Add one entry to `PROVIDER_BY_MODEL` in `src/config.py`:
+
+PROVIDER_BY_MODEL = {
+    ...
+    "new-model-name": "openrouter",  # or "mistral"
+}
+
 ### Explicit reward generation
 
 Generate a reward function before training (one-time per environment × model):

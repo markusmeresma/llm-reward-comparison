@@ -14,31 +14,15 @@ import httpx
 from mistralai.models import MistralError
 import os
 from typing import Optional
-
-SUPPORTED_MODELS_BY_PROVIDER = {
-    "openrouter": {
-        "openai/gpt-5-nano",
-        "openai/gpt-5-mini",
-        "openai/gpt-5.2",
-        "openai/gpt-5.3-codex",
-    },
-    "mistral": {
-        "mistral-large-2512",
-        "devstral-2512",
-    },
-}
+from config import PROVIDER_BY_MODEL
 
 def _validate_provider_model(provider_name: str, model_name: str) -> None:
-    if provider_name not in SUPPORTED_MODELS_BY_PROVIDER:
-        supported = ", ".join(sorted(SUPPORTED_MODELS_BY_PROVIDER))
-        raise ValueError(f"Unknown LLM provider: {provider_name}. Supported: {supported}")
-    
-    allowed = SUPPORTED_MODELS_BY_PROVIDER[provider_name]
-    if model_name not in allowed:
-        allowed_str = ", ".join(sorted(allowed))
+    provider = PROVIDER_BY_MODEL.get(model_name)
+    if provider is None:
+        raise ValueError(f"Unknown model: '{model_name}'")
+    if provider != provider_name:
         raise ValueError(
-            f"Model '{model_name}' is not supported for provider '{provider_name}'. "
-            f"Allowed: {allowed_str}"
+            f"Model '{model_name}' belongs to provider '{provider}', not '{provider_name}'"
         )
 
 def should_retry(e: Exception) -> bool:

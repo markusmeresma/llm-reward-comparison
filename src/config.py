@@ -3,19 +3,16 @@ from typing import Any
 import argparse
 import yaml
 
-ALL_SUPPORTED_MODELS = [
-    "openai/gpt-5-nano",
-    "openai/gpt-5-mini",
-    "openai/gpt-5.2",
-    "mistral-large-2512",
-]
-
 PROVIDER_BY_MODEL = {
     "openai/gpt-5-nano": "openrouter",
     "openai/gpt-5-mini": "openrouter",
     "openai/gpt-5.2": "openrouter",
+    "openai/gpt-5.3-codex": "openrouter",
     "mistral-large-2512": "mistral",
+    "devstral-2512": "mistral",
 }
+
+ALL_SUPPORTED_MODELS = list(PROVIDER_BY_MODEL)
 
 
 def infer_provider_for_model(model_name: str) -> str:
@@ -109,9 +106,6 @@ def load_train_config(argv=None) -> dict[str, Any]:
     if args.reward_model == "implicit":
         if not args.llm_model:
             raise ValueError("--llm-model is required when --reward-model implicit")
-        if args.llm_model not in ALL_SUPPORTED_MODELS:
-            allowed = ", ".join(ALL_SUPPORTED_MODELS)
-            raise ValueError(f"Unsupported --llm-model '{args.llm_model}'. Allowed: {allowed}")
         provider = infer_provider_for_model(args.llm_model)
 
     
