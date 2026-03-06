@@ -1,0 +1,56 @@
+env: crafter
+llm_model: openai/gpt-5.3-codex
+llm_provider: openrouter
+prompt_version: explicit_v1
+temperature: 0.0
+timestamp: '20260306_162423'
+attempts: 1
+errors: null
+raw_responses:
+- '{"code":"def compute_reward(current_step, prev_step, terminated, truncated):\n    reward
+  = 0.0\n\n    # Strong terminal signal for death.\n    if terminated:\n        reward
+  -= 5.0\n\n    # First step: only terminal handling applies.\n    if prev_step is
+  None:\n        return float(reward)\n\n    curr_inv = current_step.get(''inventory'',
+  {})\n    prev_inv = prev_step.get(''inventory'', {})\n    curr_ach = current_step.get(''achievements'',
+  {})\n    prev_ach = prev_step.get(''achievements'', {})\n\n    # One-time (or count-increase)
+  achievement rewards.\n    ach_weights = {\n        ''collect_wood'': 0.30,\n        ''collect_stone'':
+  0.45,\n        ''collect_coal'': 0.55,\n        ''collect_iron'': 0.85,\n        ''collect_diamond'':
+  3.00,\n        ''collect_drink'': 0.45,\n        ''collect_sapling'': 0.25,\n        ''eat_cow'':
+  0.70,\n        ''eat_plant'': 0.60,\n        ''place_table'': 1.00,\n        ''place_furnace'':
+  1.20,\n        ''place_plant'': 0.80,\n        ''place_stone'': 0.35,\n        ''make_wood_pickaxe'':
+  1.20,\n        ''make_stone_pickaxe'': 1.90,\n        ''make_iron_pickaxe'': 2.60,\n        ''make_wood_sword'':
+  1.00,\n        ''make_stone_sword'': 1.70,\n        ''make_iron_sword'': 2.30,\n        ''defeat_zombie'':
+  2.00,\n        ''defeat_skeleton'': 2.50,\n        ''wake_up'': 0.00,\n    }\n\n    ach_progress
+  = 0\n    for k, w in ach_weights.items():\n        d = curr_ach.get(k, 0) - prev_ach.get(k,
+  0)\n        if d > 0:\n            ach_progress += d\n            reward += w *
+  d\n\n    # Dense shaping for gathering/stocking key resources.\n    mat_weights
+  = {\n        ''wood'': 0.03,\n        ''stone'': 0.04,\n        ''coal'': 0.05,\n        ''iron'':
+  0.08,\n        ''diamond'': 0.20,\n        ''sapling'': 0.03,\n    }\n    for k,
+  w in mat_weights.items():\n        d = curr_inv.get(k, 0) - prev_inv.get(k, 0)\n        if
+  d > 0:\n            reward += w * d\n\n    # Reward increases in vitals (eating,
+  drinking, sleeping effectively).\n    health_d = curr_inv.get(''health'', 0) - prev_inv.get(''health'',
+  0)\n    food_d = curr_inv.get(''food'', 0) - prev_inv.get(''food'', 0)\n    drink_d
+  = curr_inv.get(''drink'', 0) - prev_inv.get(''drink'', 0)\n    energy_d = curr_inv.get(''energy'',
+  0) - prev_inv.get(''energy'', 0)\n\n    if health_d > 0:\n        reward += 0.18
+  * health_d\n    if health_d < 0:\n        reward += 0.30 * health_d  # stronger
+  penalty for taking damage\n\n    if food_d > 0:\n        reward += 0.05 * food_d\n    if
+  drink_d > 0:\n        reward += 0.06 * drink_d\n    if energy_d > 0:\n        reward
+  += 0.04 * energy_d\n\n    # Penalties for critically low vitals to encourage survival
+  behavior.\n    health = curr_inv.get(''health'', 0)\n    food = curr_inv.get(''food'',
+  0)\n    drink = curr_inv.get(''drink'', 0)\n    energy = curr_inv.get(''energy'',
+  0)\n\n    if health <= 2:\n        reward -= 0.20 * (3 - health)\n    if food <=
+  1:\n        reward -= 0.08 * (2 - food)\n    if drink <= 1:\n        reward -= 0.10
+  * (2 - drink)\n    if energy <= 1:\n        reward -= 0.04 * (2 - energy)\n\n    #
+  Tiny incentive for moving/exploring.\n    if current_step.get(''pos'') != prev_step.get(''pos''):\n        reward
+  += 0.005\n\n    # Discourage idle/no-effect actions a bit.\n    action = current_step.get(''action'',
+  0)\n    if action == 0:\n        reward -= 0.01\n\n    # Penalize likely failed
+  craft/place attempts (no observed state change).\n    if action in (7, 8, 9, 10,
+  11, 12, 13, 14, 15, 16):\n        any_inv_change = False\n        for k in curr_inv:\n            if
+  curr_inv.get(k, 0) != prev_inv.get(k, 0):\n                any_inv_change = True\n                break\n        if
+  (not any_inv_change) and ach_progress == 0:\n            reward -= 0.03\n\n    #
+  Small survival bonus for reaching time limit alive.\n    if truncated and not terminated:\n        reward
+  += 0.5\n\n    return float(reward)"}'
+usage:
+  prompt_tokens: 1306
+  completion_tokens: 2068
+  total_tokens: 3374
