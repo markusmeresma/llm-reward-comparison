@@ -103,7 +103,7 @@ python src/train.py --env minigrid --reward-model ground_truth --seed 43 --total
 |---|---|---|
 | `--env` | `minigrid`, `crafter` | Required |
 | `--reward-model` | `ground_truth`, `implicit`, `explicit` | Required |
-| `--llm-model` | `openai/gpt-5-nano`, `openai/gpt-5-mini`, `openai/gpt-5.2`, `mistral-large-2512` | Required for `implicit` |
+| `--llm-model` | `openai/gpt-5-nano`, `openai/gpt-5-mini`, `openai/gpt-5.2`, `openai/gpt-5.3-codex`, `mistral-large-2512`, `devstral-2512` | Required for `implicit` and `explicit` |
 | `--reward-code` | path to generated rewards directory | Required for `explicit` |
 | `--seed` | integer | Overrides `config.yaml` default |
 | `--total-timesteps` | integer | Overrides `config.yaml` default |

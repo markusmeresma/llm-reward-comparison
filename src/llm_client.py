@@ -20,9 +20,11 @@ SUPPORTED_MODELS_BY_PROVIDER = {
         "openai/gpt-5-nano",
         "openai/gpt-5-mini",
         "openai/gpt-5.2",
+        "openai/gpt-5.3-codex",
     },
     "mistral": {
         "mistral-large-2512",
+        "devstral-2512",
     },
 }
 
