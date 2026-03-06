@@ -21,27 +21,10 @@ This project systematically compares two LLM-based reward paradigms — **implic
 | **Implicit** | LLM evaluates segments of agent behaviour from text descriptions and outputs a scalar score | Called thousands of times during training |
 | **Explicit** | LLM generates a Python reward function *before* training; the code runs locally on every step | Called once before training |
 
-**Implicit** rewards follow the approach of Kwon et al. (2023): agent trajectories are converted to text, the LLM scores each segment, and scores are distributed back to individual timesteps for policy gradient updates.
-
-**Explicit** rewards follow a simplified EUREKA framework (Ma et al., 2024): the LLM generates an executable `compute_reward()` function given the environment description and state schema. No LLM calls happen at runtime.
-
 ## Environments
 
 - **MiniGrid** — A simple 2D grid-world with sparse goal-reaching rewards. Used as the primary testbed for fast iteration.
 - **Crafter** — A procedurally generated 2D survival game (inspired by Minecraft) with 22 achievements and a technology tree. Used to test whether findings generalise to longer horizons and more complex objectives.
-
-## Project Status
-
-| Component | Status |
-|---|---|
-| Training pipeline (PPO via Stable-Baselines3) | Done |
-| Ground truth reward baseline | Done |
-| Environment adapters (MiniGrid, Crafter) | Done |
-| Implicit LLM rewards (segment-based) | Done |
-| Explicit LLM rewards (code generation) | In progress |
-| Multi-seed experiment runner | Done |
-| Prompt optimisation (RQ2) | Planned |
-| Final evaluation and analysis | Planned |
 
 ## Tech Stack
 
@@ -67,8 +50,11 @@ llm-reward-comparison/
 │   ├── segment.py            # Segment accumulation for implicit rewards
 │   ├── segment_rollout_buffer.py  # Custom PPO rollout buffer for segment rewards
 │   ├── config.py             # CLI argument parsing + config resolution
+│   ├── generate_reward.py    # CLI script for explicit reward generation
+│   ├── explicit_generation.py # LLM code generation + validation pipeline
 │   └── environments/         # Per-environment adapters (state extraction, text conversion)
 ├── prompts/                  # LLM prompt templates per environment and paradigm
+├── generated_rewards/        # LLM-generated reward functions (created by generate_reward.py)
 ├── experiments/              # Training run outputs (TensorBoard logs, metrics, model checkpoints)
 ├── scripts/                  # Utility scripts (cost estimation, visualisation, multi-seed runner)
 ├── tests/                    # Unit tests
@@ -116,10 +102,32 @@ python src/train.py --env minigrid --reward-model ground_truth --seed 43 --total
 | Flag | Values | Notes |
 |---|---|---|
 | `--env` | `minigrid`, `crafter` | Required |
-| `--reward-model` | `ground_truth`, `implicit` | Required |
+| `--reward-model` | `ground_truth`, `implicit`, `explicit` | Required |
 | `--llm-model` | `openai/gpt-5-nano`, `openai/gpt-5-mini`, `openai/gpt-5.2`, `mistral-large-2512` | Required for `implicit` |
+| `--reward-code` | path to generated rewards directory | Required for `explicit` |
 | `--seed` | integer | Overrides `config.yaml` default |
 | `--total-timesteps` | integer | Overrides `config.yaml` default |
+
+### Explicit reward generation
+
+Generate a reward function before training (one-time per environment × model):
+
+```bash
+python src/generate_reward.py --env crafter --llm-model openai/gpt-5.2
+```
+
+This calls the LLM to produce a `compute_reward()` Python function, validates it (syntax, signature), and saves it to `generated_rewards/`. The output directory contains:
+- `reward_fn.py` — the generated function (importable, inspectable)
+- `metadata.yaml` — generation metadata (model, prompt version, token usage, raw LLM responses)
+
+Then train with the generated code:
+
+```bash
+# Train with explicit rewards
+python src/train.py --env crafter --reward-model explicit \
+    --reward-code generated_rewards/crafter_openai-gpt-5.2_20260303_120000 \
+    --seed 42
+```
 
 ### Multi-seed runs
 
@@ -132,10 +140,3 @@ bash scripts/run_seeds.sh
 ```bash
 tensorboard --logdir experiments
 ```
-
-## References
-
-- Kwon, M. et al. (2023). *Reward Design with Language Models*
-- Ma, Y.J. et al. (2024). *EUREKA: Human-Level Reward Design via Coding Large Language Models*
-- Schulman, J. et al. (2017). *Proximal Policy Optimization Algorithms*
-- Hafner, D. (2022). *Benchmarking the Spectrum of Agent Capabilities* (Crafter)
