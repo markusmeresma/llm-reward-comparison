@@ -1,0 +1,11 @@
+env_alias: crafter
+env_string: CrafterReward-v1
+eval_freq: 50000
+llm_temperature: 0.0
+n_eval_episodes: 20
+prompt_version: implicit_v1
+reward_code: /workspace/llm-reward-comparison/generated_rewards/crafter_openai-gpt-5.3-codex_20260306_162423/reward_fn.py
+reward_model: explicit
+seed: 123
+segment_length: 64
+total_timesteps: 1000000
