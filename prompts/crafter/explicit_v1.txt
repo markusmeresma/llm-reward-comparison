@@ -1,0 +1,116 @@
+You are writing a reward function for a reinforcement learning agent in Crafter, a 2D open-world survival game.
+
+## Environment
+
+Crafter is a procedurally generated 2D world where the agent must survive and progress through a technology tree. The agent starts with basic vitals (health, food, drink, energy) and must gather resources, craft tools, build structures, and fight monsters.
+
+Episodes last up to ~1000 steps. The episode ends if the agent's health reaches 0 (terminated=True) or the time limit is hit (truncated=True).
+
+## Technology tree
+
+Resources and crafting follow a dependency chain:
+
+  Gathering (using "do" action on the right terrain):
+    - wood: collect from trees (no tool needed)
+    - stone: collect from rocks (requires wood_pickaxe)
+    - coal: collect from rocks (requires wood_pickaxe)
+    - iron: collect from rocks (requires stone_pickaxe)
+    - diamond: collect from rocks (requires iron_pickaxe)
+    - sapling: collect from trees (no tool needed)
+    - drink: collect from lakes (no tool needed)
+    - food: eat_cow or eat_plant
+
+  Placement (consumes materials):
+    - place_table: requires wood (enables pickaxe/sword crafting)
+    - place_furnace: requires stone (enables stone/iron tool crafting)
+    - place_plant: requires sapling (grows into food source)
+    - place_stone: requires stone (builds walls)
+
+  Crafting (must be near the right workstation):
+    - wood_pickaxe: requires wood + nearby table
+    - stone_pickaxe: requires wood + stone + nearby table + furnace
+    - iron_pickaxe: requires wood + iron + nearby table + furnace
+    - wood_sword: requires wood + nearby table
+    - stone_sword: requires wood + stone + nearby table + furnace
+    - iron_sword: requires wood + iron + nearby table + furnace
+
+## Achievements (22 total)
+
+These track lifetime progress and never reset within an episode:
+  collect_coal, collect_diamond, collect_drink, collect_iron,
+  collect_sapling, collect_stone, collect_wood, defeat_skeleton,
+  defeat_zombie, eat_cow, eat_plant, make_iron_pickaxe,
+  make_iron_sword, make_stone_pickaxe, make_stone_sword,
+  make_wood_pickaxe, make_wood_sword, place_furnace,
+  place_plant, place_stone, place_table, wake_up
+
+Each achievement is 0 (not yet unlocked) or >= 1 (unlocked). "wake_up" is unlocked at the start of every episode.
+
+## Actions
+
+The agent has 17 discrete actions:
+  0: noop              1: move_left      2: move_right
+  3: move_up           4: move_down      5: do (interact/attack)
+  6: sleep             7: place_stone    8: place_table
+  9: place_furnace    10: place_plant   11: make_wood_pickaxe
+  12: make_stone_pickaxe  13: make_iron_pickaxe   14: make_wood_sword
+  15: make_stone_sword    16: make_iron_sword
+
+The "do" action (5) interacts with the object the agent is facing - this is how the agent collects resources, eats, and attacks.
+
+Craft/place actions silently fail if prerequisites are not met (no error, just no effect).
+
+## Function signature
+
+Write a Python function with this exact signature:
+
+def compute_reward(current_step, prev_step, terminated, truncated):
+    """
+    Args:
+        current_step: dict with keys described below
+        prev_step: dict with same keys, or None on the first step of an episode
+        terminated: bool, True if the agent died (health reached 0)
+        truncated: bool, True if the episode hit the time limit
+
+    Returns:
+        float: scalar reward for this step
+    """
+
+## step_state schema
+
+Both current_step and prev_step are dicts with these keys:
+
+| Key          | Type          | Description                                      |
+|--------------|---------------|--------------------------------------------------|
+| action       | int           | Action the agent took this step (0-16)           |
+| pos          | tuple[int]    | Agent's (x, y) position after this step          |
+| inventory    | dict[str,int] | All 16 inventory items (see below)               |
+| achievements | dict[str,int] | All 22 achievements (0=locked, >=1=unlocked)     |
+
+### inventory keys and their meanings
+
+Vitals (max 9 each, agent dies if health reaches 0):
+  health, food, drink, energy
+
+Materials (max 9 each, gathered and consumed by crafting):
+  wood, stone, coal, iron, diamond, sapling
+
+Tools (max 9 each, crafted from materials):
+  wood_pickaxe, stone_pickaxe, iron_pickaxe,
+  wood_sword, stone_sword, iron_sword
+
+### achievements keys
+
+All 22 achievements listed above. Value is 0 if not yet unlocked, >= 1 if unlocked.
+
+## Output constraints
+
+- Return your response as a JSON object with a single key "code" containing the complete function as a string.
+- Example format: {"code": "def compute_reward(current_step, prev_step, terminated, truncated):\n    ..."}
+- The function must return a single float value.
+- Do NOT import any external libraries. Only use Python builtins (abs, max, min, sum, len, etc.) and the provided parameters.
+- Do NOT use numpy, math, or any other module.
+- The function must be named exactly compute_reward.
+- The function must accept exactly the four parameters listed above, in that order.
+- Handle the case where prev_step is None (first step of episode).
+- The "code" value must contain ONLY the function definition. No test code, no examples, no explanation.

@@ -5,7 +5,7 @@ from datetime import datetime
 import logging
 from config import get_project_root, load_prompt, load_train_config
 from env import make_vec_env, make_eval_env
-from rewards import GroundTruthRewardModel, ImplicitRewardModel, RewardModel
+from rewards import GroundTruthRewardModel, ImplicitRewardModel, ExplicitRewardModel, RewardModel
 from llm_client import LLMClient, create_provider
 from callbacks import MiniGridCallback, CrafterCallback
 from segment_rollout_buffer import SegmentRolloutBuffer
@@ -39,6 +39,9 @@ def create_reward_model(adapter, config: dict, run_id: str, log_dir: Path) -> Re
             adapter=adapter,
             segment_length=config["segment_length"]
         )
+    
+    elif reward_type =="explicit":
+        return ExplicitRewardModel(reward_code_path=config["reward_code"])
     
     else:
         raise ValueError(f"Unknown reward model: {reward_type}")
@@ -83,8 +86,14 @@ def main():
     run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     run_name = f"{config['env_alias']}_{config['reward_model']}_seed{seed}_{run_id}"
     if config["reward_model"] == "implicit":
+        # Extract the model tag to identify which model this training run used
         model_tag = config["llm_model"].replace("/", "-")
         run_name = f"{config['env_alias']}_{config['reward_model']}_{model_tag}_seed{seed}_{run_id}"
+    elif config["reward_model"] == "explicit":
+        # Extract the generation directory name (e.g. "crafter_openai-gpt-5.2_20260303_120000")
+        # to identify which generated code this training run used
+        reward_dir_name = Path(config["reward_code"]).parent.name
+        run_name = f"{config['env_alias']}_{config['reward_model']}_{reward_dir_name}_seed{seed}_{run_id}"
     run_dir = project_root / "experiments" / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
     

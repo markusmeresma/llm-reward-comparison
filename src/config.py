@@ -61,7 +61,7 @@ def parse_train_args(argv=None) -> argparse.Namespace:
     parser.add_argument(
         "--reward-model",
         required=True,
-        choices=["ground_truth", "implicit"],
+        choices=["ground_truth", "implicit", "explicit"],
         help="Reward model alias: ground_truth -> ground_truth, implicit -> implicit"
     )
     parser.add_argument(
@@ -71,6 +71,14 @@ def parse_train_args(argv=None) -> argparse.Namespace:
         help=(
             "Required for implicit reward model. "
             f"Supported: {', '.join(ALL_SUPPORTED_MODELS)}"
+        ),
+    )
+    parser.add_argument(
+        "--reward-code",
+        required=False,
+        help=(
+            "Path to generated rewards directory (required for explicit). "
+            "E.g. generated_rewards/crafter_openai-gpt-5.2_20260303_120000"
         ),
     )
     parser.add_argument(
@@ -110,7 +118,7 @@ def load_train_config(argv=None) -> dict[str, Any]:
     resolved = {
         "env_alias": env_key,
         "env_string": env_cfg["env_string"],
-        "reward_model": args.reward_model,  # ground_truth or implicit
+        "reward_model": args.reward_model,  # ground_truth, implicit or explicit
         "total_timesteps": env_cfg["total_timesteps"],
         "eval_freq": env_cfg["eval_freq"],
         "n_eval_episodes": env_cfg["n_eval_episodes"],
@@ -129,6 +137,21 @@ def load_train_config(argv=None) -> dict[str, Any]:
     if args.reward_model == "implicit":
         resolved["llm_provider"] = provider
         resolved["llm_model"] = args.llm_model
+        
+    if args.reward_model == "explicit":
+        if not args.reward_code:
+            raise ValueError("--reward-code is required when --reward-model explicit")
+        reward_code_path = Path(args.reward_code)
+        # Allow both absolute paths and paths relative to project root
+        if not reward_code_path.is_absolute():
+            reward_code_path = get_project_root() / reward_code_path
+        reward_fn_path = reward_code_path / "reward_fn.py"
+        if not reward_fn_path.exists():
+            raise FileNotFoundError(
+                f"reward_fn.py not found in {reward_code_path}. "
+                f"Run generate_reward.py first."
+            )
+        resolved["reward_code"] = str(reward_fn_path)
     
     # Only minigrid should carry this key
     if "success_threshold" in env_cfg:

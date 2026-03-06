@@ -15,7 +15,8 @@ envs:
     eval_freq: 2000
     n_eval_episodes: 25
     success_threshold: 0.90
-    prompt_version: "v1"
+    prompt_version: "implicit_v1"
+    explicit_prompt_version: "explicit_v1"
     segment_length: 16
 
   crafter:
@@ -23,5 +24,6 @@ envs:
     total_timesteps: 2048
     eval_freq: 50000
     n_eval_episodes: 20
-    prompt_version: "v1"
+    prompt_version: "implicit_v1"
+    explicit_prompt_version: "explicit_v1"
     segment_length: 64

@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from implicit_reward import build_segment_implicit_prompt
 from dataclasses import dataclass
 from segment import SegmentAccumulator
+import logging
+import importlib.util
 
 class RewardModel(ABC):
     """Abstract interface for reward computation.
@@ -145,3 +147,91 @@ class RewardModelWrapper(Wrapper):
         )
         self._current_obs = obs
         return obs, new_reward, terminated, truncated, info
+    
+class ExplicitRewardModel(RewardModel):
+    """Explicit LLM reward model (EUREKA-style).
+
+    Loads a pre-generated Python file containing a compute_reward() function
+    and calls it on every environment step. No LLM calls at runtime - the
+    generated code runs locally as a normal Python function.
+
+    The generated function signature is:
+        compute_reward(current_step, prev_step, terminated, truncated) -> float
+
+    where current_step and prev_step are the step_state dicts produced by the
+    environment adapter. prev_step is None on the first step of each episode.
+
+    This class tracks prev_step internally and resets it to None when an
+    episode ends (terminated or truncated), so the generated function always
+    receives the correct previous state.
+    """
+    def __init__(self, reward_code_path: str) -> None:
+        """Load the generated reward function from a .py file.
+
+        Args:
+            reward_code_path: Path to the generated reward_fn.py file.
+                Loaded via importlib so tracebacks show real file paths
+                and line numbers (unlike exec() which shows '<string>').
+
+        Raises:
+            FileNotFoundError: If reward_code_path does not exist.
+            AttributeError: If the loaded module has no compute_reward function.
+        """
+        self._logger = logging.getLogger(__name__)
+        self._prev_step = None
+        
+        # importlib.util.spec_from_file_location creates a module spec from a
+        # file path. We then create the module object and execute it, which is
+        # equivalent to "import reward_fn" but from an arbitrary file path.
+        spec = importlib.util.spec_from_file_location("reward_fn", reward_code_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        
+        # Extract the function the LLM was instructed to define
+        if not hasattr(module, "compute_reward"):
+            raise AttributeError(
+                f"Generated module {reward_code_path} has no 'compute_reward' function"
+            )
+            
+        self._reward_fn = module.compute_reward
+        self._logger.info(f"Loaded explicit reward function from {reward_code_path}")
+        
+    def compute_reward(self, state, action, next_state, reward,
+                       terminated, truncated, step_state) -> float:
+        """Call the generated reward function with the current and previous step states.
+
+        Args:
+            state: Raw observation (unused — the generated function works on step_state).
+            action: Action taken (unused — already encoded in step_state).
+            next_state: Next raw observation (unused).
+            reward: Environment's native reward (unused — explicit replaces it entirely).
+            terminated: True if the episode ended naturally.
+            truncated: True if the episode hit the time limit.
+            step_state: Dict from adapter.extract_step_state() for this step.
+
+        Returns:
+            Scalar reward from the generated function. On crash, returns 0.0
+            so training continues (same fallback strategy as ImplicitRewardModel).
+        """
+        try:
+            result = self._reward_fn(
+                current_step=step_state,
+                prev_step=self._prev_step,
+                terminated=terminated,
+                truncated=truncated,
+            )
+        except Exception as e:
+            # Generated code can crash on edge cases (e.g. missing dict keys,
+            # division by zero). Log the error and return neutral reward so
+            # training doesn't abort.
+            self._logger.warning(f"Explicit reward function crashed: {e}")
+            result = 0.0
+            
+        self._prev_step = step_state
+        
+        # When the episode ends, reset prev_step so the next episode's first
+        # step correctly receives prev_step=None.
+        if terminated or truncated:
+            self._prev_step = None
+
+        return float(result)

@@ -10,6 +10,9 @@ build/
 .venv/
 venv/
 
+# LLM generated reward code should be ignored
+generated_rewards/
+
 # Ignore all experiment contents by default
 experiments/**
 

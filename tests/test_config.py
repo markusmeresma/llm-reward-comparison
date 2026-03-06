@@ -120,3 +120,79 @@ def test_load_prompt_raises_if_file_empty(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError):
         config.load_prompt("crafter", "v1")
+
+
+# --- Explicit reward model config ---
+
+def test_explicit_requires_reward_code(monkeypatch):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+
+    with pytest.raises(ValueError, match="--reward-code is required"):
+        config.load_train_config(
+            ["--env", "crafter", "--reward-model", "explicit"]
+        )
+
+
+def test_explicit_resolves_absolute_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+
+    reward_dir = tmp_path / "gen_rewards"
+    reward_dir.mkdir()
+    (reward_dir / "reward_fn.py").write_text("def compute_reward(): pass\n")
+
+    resolved = config.load_train_config([
+        "--env", "crafter",
+        "--reward-model", "explicit",
+        "--reward-code", str(reward_dir),
+    ])
+
+    assert resolved["reward_model"] == "explicit"
+    assert resolved["reward_code"] == str(reward_dir / "reward_fn.py")
+
+
+def test_explicit_resolves_relative_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+    monkeypatch.setattr(config, "get_project_root", lambda: tmp_path)
+
+    reward_dir = tmp_path / "generated_rewards" / "crafter_test"
+    reward_dir.mkdir(parents=True)
+    (reward_dir / "reward_fn.py").write_text("def compute_reward(): pass\n")
+
+    resolved = config.load_train_config([
+        "--env", "crafter",
+        "--reward-model", "explicit",
+        "--reward-code", "generated_rewards/crafter_test",
+    ])
+
+    assert resolved["reward_code"] == str(reward_dir / "reward_fn.py")
+
+
+def test_explicit_raises_if_reward_fn_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+
+    empty_dir = tmp_path / "empty_gen"
+    empty_dir.mkdir()
+
+    with pytest.raises(FileNotFoundError, match="reward_fn.py not found"):
+        config.load_train_config([
+            "--env", "crafter",
+            "--reward-model", "explicit",
+            "--reward-code", str(empty_dir),
+        ])
+
+
+def test_explicit_config_excludes_llm_fields(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+
+    reward_dir = tmp_path / "gen"
+    reward_dir.mkdir()
+    (reward_dir / "reward_fn.py").write_text("pass\n")
+
+    resolved = config.load_train_config([
+        "--env", "crafter",
+        "--reward-model", "explicit",
+        "--reward-code", str(reward_dir),
+    ])
+
+    assert "llm_provider" not in resolved
+    assert "llm_model" not in resolved

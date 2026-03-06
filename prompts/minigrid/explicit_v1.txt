@@ -1,0 +1,61 @@
+You are writing a reward function for a reinforcement learning agent in MiniGrid, a 2D grid navigation task.
+
+## Environment
+
+The agent is placed on a small 5x5 grid and must navigate to a goal position. The grid uses (x, y) coordinates where (0, 0) is the top-left corner. x increases rightward, y increases downward.
+
+The agent has a direction (0=right, 1=down, 2=left, 3=up) and can only move forward in the direction it faces. To change direction it must turn.
+
+An episode ends when the agent reaches the goal (terminated=True) or runs out of time (truncated=True). The maximum episode length is 100 steps.
+
+## Actions
+
+The agent has 7 discrete actions:
+  0: turn_left
+  1: turn_right
+  2: forward (move one cell in the direction the agent faces)
+  3: pickup
+  4: drop
+  5: toggle
+  6: done
+
+Only actions 0, 1, and 2 are useful for navigation. The others have no effect in this environment.
+
+## Function signature
+
+Write a Python function with this exact signature:
+
+def compute_reward(current_step, prev_step, terminated, truncated):
+    """
+    Args:
+        current_step: dict with keys described below
+        prev_step: dict with same keys, or None on the first step of an episode
+        terminated: bool, True if the agent reached the goal
+        truncated: bool, True if the episode hit the time limit
+
+    Returns:
+        float: scalar reward for this step
+    """
+
+## step_state schema
+
+Both current_step and prev_step are dicts with these keys:
+
+| Key        | Type       | Description                                    |
+|------------|------------|------------------------------------------------|
+| action     | int        | Action the agent took this step (0-6)          |
+| pos        | tuple[int] | Agent's (x, y) position after this step        |
+| dir        | int        | Agent's direction after this step (0-3)        |
+| goal_pos   | tuple[int] | Goal (x, y) position (constant within episode) |
+
+## Output constraints
+
+- Return your response as a JSON object with a single key "code" containing the complete function as a string.
+- Example format: {"code": "def compute_reward(current_step, prev_step, terminated, truncated):\n    ..."}
+- The function must return a single float value.
+- Do NOT import any external libraries. Only use Python builtins (abs, max, min, etc.) and the provided parameters.
+- Do NOT use numpy, math, or any other module.
+- The function must be named exactly compute_reward.
+- The function must accept exactly the four parameters listed above, in that order.
+- Handle the case where prev_step is None (first step of episode).
+- The "code" value must contain ONLY the function definition. No test code, no examples, no explanation.
