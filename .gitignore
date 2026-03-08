@@ -43,7 +43,15 @@ experiments/**
 !experiments/crafter_explicit_crafter_openai-gpt-5.3-codex_20260306_162423_seed123_20260306_203315/**
 !experiments/crafter_explicit_crafter_openai-gpt-5.3-codex_20260306_162423_seed456_20260306_231918
 !!experiments/crafter_explicit_crafter_openai-gpt-5.3-codex_20260306_162423_seed456_20260306_231918/**
+# 1M timesteps, implicit reward with Mistral, seed=123
+!experiments/crafter_implicit_mistral-large-2512_seed123_20260307_144243
+!experiments/crafter_implicit_mistral-large-2512_seed123_20260307_144243/**
+# 1M timesteps, implicit reward with Mistral, seed=456
+!experiments/crafter_implicit_mistral-large-2512_seed456_20260308_000118
+!experiments/crafter_implicit_mistral-large-2512_seed456_20260308_000118/**
 
+# Ignore .html files produced by the visualisation script
+experiments/**/llm_calls_*.html
 
 
 # Ignore all scripts by default

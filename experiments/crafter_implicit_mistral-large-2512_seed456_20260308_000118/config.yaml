@@ -1,0 +1,12 @@
+env_alias: crafter
+env_string: CrafterReward-v1
+eval_freq: 50000
+llm_model: mistral-large-2512
+llm_provider: mistral
+llm_temperature: 0.0
+n_eval_episodes: 20
+prompt_version: implicit_v1
+reward_model: implicit
+seed: 456
+segment_length: 64
+total_timesteps: 1000000
