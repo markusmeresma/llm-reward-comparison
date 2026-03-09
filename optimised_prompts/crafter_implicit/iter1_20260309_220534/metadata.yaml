@@ -1,0 +1,135 @@
+optimiser_model: openai/gpt-5.2
+iteration: 1
+experiment_path: experiments/crafter_implicit_openai-gpt-5.2_seed42_20260225_090107
+input_prompt_path: prompts/crafter/implicit_v1.txt
+pre_optimisation_crafter_score: 3.058425
+pre_optimisation_metrics:
+  crafter_score: 3.058425
+  mean_achievements_per_episode: 3.74
+  success_rate_collect_coal: 0.0
+  success_rate_collect_diamond: 0.0
+  success_rate_collect_drink: 18.0
+  success_rate_collect_iron: 0.0
+  success_rate_collect_sapling: 94.0
+  success_rate_collect_stone: 0.0
+  success_rate_collect_wood: 74.0
+  success_rate_defeat_skeleton: 0.0
+  success_rate_defeat_zombie: 10.0
+  success_rate_eat_cow: 48.0
+  success_rate_eat_plant: 0.0
+  success_rate_make_iron_pickaxe: 0.0
+  success_rate_make_iron_sword: 0.0
+  success_rate_make_stone_pickaxe: 0.0
+  success_rate_make_stone_sword: 0.0
+  success_rate_make_wood_pickaxe: 6.0
+  success_rate_make_wood_sword: 4.0
+  success_rate_place_furnace: 0.0
+  success_rate_place_plant: 80.0
+  success_rate_place_stone: 0.0
+  success_rate_place_table: 38.0
+  success_rate_wake_up: 2.0
+reasoning: "Diagnosis from metrics: the agent reliably gets early easy achievements\
+  \ (collect_sapling, collect_wood, place_plant, some drink/eat_cow) but almost never\
+  \ crosses the first major bottleneck of the tech tree (make_wood_pickaxe) and therefore\
+  \ never reaches collect_stone/coal/iron, place_furnace, stone/iron tools, or late\
+  \ achievements. It also rarely achieves wake_up and almost never defeats skeletons,\
+  \ suggesting weak night handling and insufficient weapon progression. The current\
+  \ prompt is too generic and likely over-rewards \u201Cbusywork\u201D (wood/sapling/planting,\
+  \ basic survival) because it calls those \u2018meaningful progress\u2019 without\
+  \ emphasizing prerequisite chains or diminishing returns.\n\nPrompt changes to address\
+  \ failures: (1) Make technology progression the highest-priority scoring driver,\
+  \ with explicit high rewards for table -> wood_pickaxe -> stone -> furnace -> coal/iron\
+  \ -> upgraded tools. (2) Add an explicit anti-reward-hacking rule: repeating easy\
+  \ actions without escalation should score low (diminishing returns), preventing\
+  \ the agent from farming wood/sapling/planting. (3) Keep survival important but\
+  \ framed as enabling continued progress, not the main objective. (4) Encourage night\
+  \ handling (wake_up/safe shelter) and combat wins when they are sensible, while\
+  \ penalizing reckless damage/death. (5) Add a concrete numeric rubric so the reward\
+  \ model uses the full range consistently and sharply distinguishes tech leaps from\
+  \ stalling."
+raw_response: "{\"prompt\":\"You are an expert reward model evaluating an agent\u2019\
+  s behavior in Crafter (2D open-world survival). You will be given a text segment\
+  \ summary of the agent\u2019s last fixed window of steps.\\n\\nYour job: output\
+  \ a scalar reward score in [0.0, 1.0] that will be the agent\u2019s ONLY learning\
+  \ signal. The score must strongly encourage broad, technology-tree progress AND\
+  \ survival (so the agent can later complete harder achievements), not just repeating\
+  \ easy actions.\\n\\n=== What \u201Cgood\u201D looks like (optimize for breadth)\
+  \ ===\\nCrafter success is measured by many achievements. Reward behavior that increases\
+  \ the chance of achieving MORE of them across an episode, especially advancing the\
+  \ tech tree:\\n- Early foundation: collect_wood, collect_sapling, collect_drink,\
+  \ place_table\\n- Tool progression: make_wood_pickaxe -> collect_stone/coal -> place_furnace\
+  \ -> make_stone_pickaxe -> collect_iron -> make_iron_* -> collect_diamond\\n- Combat/night:\
+  \ defeat_zombie, defeat_skeleton, wake_up (sleep safely)\\n- Food: eat_cow, eat_plant\
+  \ (and generally maintaining food/thirst/health)\\n\\n=== Critical instruction (avoid\
+  \ reward hacking) ===\\nDo NOT give high scores for repeatedly doing the same \u201C\
+  easy\u201D achievements (e.g., endlessly collecting wood/saplings, repeatedly planting)\
+  \ without converting them into new capabilities (table/tools/stone/furnace/iron/etc.).\
+  \ Repetition without escalation should get diminishing scores.\\n\\nFailed actions\
+  \ (explicitly marked failed in the summary) produce no effect and should be penalized,\
+  \ especially repeated failed crafting/placing.\\n\\n=== How to judge a segment ===\\\
+  nScore based on (A) TECHNOLOGY PROGRESSION, (B) SURVIVAL MANAGEMENT, (C) EFFICIENT\
+  \ EXPLORATION/COMBAT.\\n\\nA) TECHNOLOGY PROGRESSION (highest priority)\\nGive the\
+  \ biggest reward for concrete steps that unlock new parts of the tech tree:\\n-\
+  \ Very high value events (often 0.85\u20131.0 if the segment includes one or more):\\\
+  n  \u2022 place_table (if not already placed) or successful crafting at the table\
+  \ that leads to new tools\\n  \u2022 make_wood_pickaxe (key bottleneck)\\n  \u2022\
+  \ collect_stone (requires wood_pickaxe) / place_furnace (stone) / collect_coal\\\
+  n  \u2022 collect_iron (stone_pickaxe) / make_stone_pickaxe / make_iron_pickaxe\\\
+  n  \u2022 make_*_sword when it plausibly enables fighting at night\\n  \u2022 collect_diamond\
+  \ (late-game)\\n- Medium value events (often 0.55\u20130.8):\\n  \u2022 Gathering\
+  \ that is clearly in service of imminent crafting/placement (e.g., gathering wood\
+  \ then placing table; gathering wood+sufficient stone then placing furnace)\\n \
+  \ \u2022 Exploring to locate needed resources (stone/coal/iron) AND actually reaching/engaging\
+  \ with them (not just wandering)\\n- Low value events (often 0.2\u20130.5):\\n \
+  \ \u2022 Collecting small amounts of wood/saplings/planting when there is no sign\
+  \ of tech escalation\\n\\nB) SURVIVAL MANAGEMENT (must be maintained, but not at\
+  \ the expense of progress)\\nReward actions that prevent death while allowing continued\
+  \ progression:\\n- Positive: drinking when thirsty, eating when food is low (eat_cow\
+  \ / eat_plant), avoiding unnecessary damage, retreating intelligently.\\n- Negative:\
+  \ losing lots of health to avoidable hazards, starving/dehydrating due to inattention.\\\
+  n- If the segment shows the agent is stable (food/thirst/health OK), survival-only\
+  \ maintenance should not dominate the score unless it directly enables continued\
+  \ exploration/crafting.\\n\\nC) COMBAT / NIGHT HANDLING / WAKE_UP\\n- Reward defeating\
+  \ zombies/skeletons (especially if done safely with a weapon or good positioning).\\\
+  n- Reward safe night management: sleeping to wake_up (when appropriate), building/using\
+  \ shelter, not dying at night.\\n- Penalize reckless fights that cause major health\
+  \ loss or death without compensating progress.\\n\\n=== Death handling ===\\nIf\
+  \ the agent dies:\\n- If it died after achieving major tech progress in the segment\
+  \ (e.g., crafted key tool, collected stone/iron, placed furnace), score can still\
+  \ be moderate.\\n- If it died after wasting time or due to neglecting food/drink,\
+  \ score should be very low.\\n\\n=== Practical scoring rubric ===\\nUse the whole\
+  \ [0.0, 1.0] range.\\n- 0.90\u20131.00: Major tech leap(s) (table/tool/furnace/stone/coal/iron/diamond)\
+  \ and survival is handled reasonably.\\n- 0.70\u20130.89: Clear progress toward\
+  \ a near tech leap (e.g., gathering the right prerequisites and executing part of\
+  \ the chain), good exploration, or a meaningful combat win.\\n- 0.40\u20130.69:\
+  \ Some useful actions but limited escalation (e.g., resource gathering with weak\
+  \ evidence it leads to new crafting; minor exploration; survival topped up).\\n-\
+  \ 0.15\u20130.39: Mostly repetitive low-tier actions (wood/sapling/planting) or\
+  \ cautious stalling; little advancement.\\n- 0.00\u20130.14: Idle/aimless, repeated\
+  \ failed attempts, heavy avoidable damage, or death with no meaningful progress.\\\
+  n\\n=== Output format (MUST follow exactly) ===\\nReturn JSON with:\\n- \\\"score\\\
+  \": a number from 0.0 to 1.0\\n- \\\"reasoning\\\": brief explanation citing the\
+  \ most important events (progress, survival, failures, repetition).\\n\\nOnly output\
+  \ valid JSON.\",\"reasoning\":\"Diagnosis from metrics: the agent reliably gets\
+  \ early easy achievements (collect_sapling, collect_wood, place_plant, some drink/eat_cow)\
+  \ but almost never crosses the first major bottleneck of the tech tree (make_wood_pickaxe)\
+  \ and therefore never reaches collect_stone/coal/iron, place_furnace, stone/iron\
+  \ tools, or late achievements. It also rarely achieves wake_up and almost never\
+  \ defeats skeletons, suggesting weak night handling and insufficient weapon progression.\
+  \ The current prompt is too generic and likely over-rewards \u201Cbusywork\u201D\
+  \ (wood/sapling/planting, basic survival) because it calls those \u2018meaningful\
+  \ progress\u2019 without emphasizing prerequisite chains or diminishing returns.\\\
+  n\\nPrompt changes to address failures: (1) Make technology progression the highest-priority\
+  \ scoring driver, with explicit high rewards for table -> wood_pickaxe -> stone\
+  \ -> furnace -> coal/iron -> upgraded tools. (2) Add an explicit anti-reward-hacking\
+  \ rule: repeating easy actions without escalation should score low (diminishing\
+  \ returns), preventing the agent from farming wood/sapling/planting. (3) Keep survival\
+  \ important but framed as enabling continued progress, not the main objective. (4)\
+  \ Encourage night handling (wake_up/safe shelter) and combat wins when they are\
+  \ sensible, while penalizing reckless damage/death. (5) Add a concrete numeric rubric\
+  \ so the reward model uses the full range consistently and sharply distinguishes\
+  \ tech leaps from stalling.\"}"
+usage:
+  prompt_tokens: 1122
+  completion_tokens: 2248
+  total_tokens: 3370

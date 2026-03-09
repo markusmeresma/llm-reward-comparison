@@ -1,0 +1,65 @@
+- iteration: 1
+  prompt_path: /Users/markusmeresma/kingsbsc/year3/6CCS3PRJ/fyp-actual/llm-reward-comparison/optimised_prompts/crafter_explicit/iter1_20260309_223220/prompt.txt
+  experiment_path: experiments/crafter_explicit_crafter_openai-gpt-5.3-codex_20260306_162423_seed42_20260306_181250
+  pre_optimisation_crafter_score: 0.728819
+  pre_optimisation_metrics:
+    crafter_score: 0.728819
+    mean_achievements_per_episode: 0.9
+    success_rate_collect_coal: 0.0
+    success_rate_collect_diamond: 0.0
+    success_rate_collect_drink: 45.0
+    success_rate_collect_iron: 0.0
+    success_rate_collect_sapling: 20.0
+    success_rate_collect_stone: 0.0
+    success_rate_collect_wood: 15.0
+    success_rate_defeat_skeleton: 0.0
+    success_rate_defeat_zombie: 0.0
+    success_rate_eat_cow: 0.0
+    success_rate_eat_plant: 0.0
+    success_rate_make_iron_pickaxe: 0.0
+    success_rate_make_iron_sword: 0.0
+    success_rate_make_stone_pickaxe: 0.0
+    success_rate_make_stone_sword: 0.0
+    success_rate_make_wood_pickaxe: 0.0
+    success_rate_make_wood_sword: 0.0
+    success_rate_place_furnace: 0.0
+    success_rate_place_plant: 0.0
+    success_rate_place_stone: 0.0
+    success_rate_place_table: 0.0
+    success_rate_wake_up: 10.0
+  reasoning_summary: 'Diagnosis from metrics: the agent reliably finds water (collect_drink
+    45%) but almost never progresses into the tech tree (0% table/pickaxe/stone/furnace/iron/diamond,
+    0% food and combat). This pattern strongly suggests the current reward is either
+    (a) too focused on simple survival signals (e.g., drink) and/or (b) too sparse/uninformative
+    for multi-step prerequisites like placing a table then crafting a pickaxe then
+    mining stone. Because Crafter Score is a geometric mean across 22 achievements,
+    over-rewarding a single easy achievement hurts breadth: the agent can get decent
+    reward without ever crafting.
+
+
+    Prompt changes to address failures while preserving what works:
+
+    - Make achievement unlocks the dominant reward signal with a calibrated weight
+    schedule so the agent is pushed from early gathering into building/crafting and
+    later goals.
+
+    - Add capped dense shaping on inventory deltas (clipped to targets) so gathering
+    wood/sapling/drink helps initially but cannot be farmed forever.
+
+    - Add explicit curriculum logic (next-milestone bias) to bridge long dependencies:
+    wood -> table -> wood_pickaxe -> stone/coal -> furnace -> stone_pickaxe -> iron
+    -> iron tools -> diamond, plus food/combat.
+
+    - Add survival shaping (low-vital penalties, reward for increases, death penalty)
+    so the agent can pursue crafting without dying, which is necessary to reach harder
+    achievements.
+
+    - Add anti-waste penalties for noops and failed craft/place actions (detectable
+    via unchanged inventory+achievements) to reduce random ineffective behavior.
+
+    - Require reward clipping for stability.
+
+
+    These changes specifically target the missing achievements (all crafting/placement/mining/combat)
+    without removing the existing incentive to drink; instead, drink becomes one early-step
+    component that saturates and then stops dominating behavior.'

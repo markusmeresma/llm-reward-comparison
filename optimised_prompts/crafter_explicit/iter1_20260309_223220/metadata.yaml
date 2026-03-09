@@ -1,0 +1,196 @@
+optimiser_model: openai/gpt-5.2
+iteration: 1
+experiment_path: experiments/crafter_explicit_crafter_openai-gpt-5.3-codex_20260306_162423_seed42_20260306_181250
+input_prompt_path: prompts/crafter/explicit_v1.txt
+pre_optimisation_crafter_score: 0.728819
+pre_optimisation_metrics:
+  crafter_score: 0.728819
+  mean_achievements_per_episode: 0.9
+  success_rate_collect_coal: 0.0
+  success_rate_collect_diamond: 0.0
+  success_rate_collect_drink: 45.0
+  success_rate_collect_iron: 0.0
+  success_rate_collect_sapling: 20.0
+  success_rate_collect_stone: 0.0
+  success_rate_collect_wood: 15.0
+  success_rate_defeat_skeleton: 0.0
+  success_rate_defeat_zombie: 0.0
+  success_rate_eat_cow: 0.0
+  success_rate_eat_plant: 0.0
+  success_rate_make_iron_pickaxe: 0.0
+  success_rate_make_iron_sword: 0.0
+  success_rate_make_stone_pickaxe: 0.0
+  success_rate_make_stone_sword: 0.0
+  success_rate_make_wood_pickaxe: 0.0
+  success_rate_make_wood_sword: 0.0
+  success_rate_place_furnace: 0.0
+  success_rate_place_plant: 0.0
+  success_rate_place_stone: 0.0
+  success_rate_place_table: 0.0
+  success_rate_wake_up: 10.0
+reasoning: 'Diagnosis from metrics: the agent reliably finds water (collect_drink
+  45%) but almost never progresses into the tech tree (0% table/pickaxe/stone/furnace/iron/diamond,
+  0% food and combat). This pattern strongly suggests the current reward is either
+  (a) too focused on simple survival signals (e.g., drink) and/or (b) too sparse/uninformative
+  for multi-step prerequisites like placing a table then crafting a pickaxe then mining
+  stone. Because Crafter Score is a geometric mean across 22 achievements, over-rewarding
+  a single easy achievement hurts breadth: the agent can get decent reward without
+  ever crafting.
+
+
+  Prompt changes to address failures while preserving what works:
+
+  - Make achievement unlocks the dominant reward signal with a calibrated weight schedule
+  so the agent is pushed from early gathering into building/crafting and later goals.
+
+  - Add capped dense shaping on inventory deltas (clipped to targets) so gathering
+  wood/sapling/drink helps initially but cannot be farmed forever.
+
+  - Add explicit curriculum logic (next-milestone bias) to bridge long dependencies:
+  wood -> table -> wood_pickaxe -> stone/coal -> furnace -> stone_pickaxe -> iron
+  -> iron tools -> diamond, plus food/combat.
+
+  - Add survival shaping (low-vital penalties, reward for increases, death penalty)
+  so the agent can pursue crafting without dying, which is necessary to reach harder
+  achievements.
+
+  - Add anti-waste penalties for noops and failed craft/place actions (detectable
+  via unchanged inventory+achievements) to reduce random ineffective behavior.
+
+  - Require reward clipping for stability.
+
+
+  These changes specifically target the missing achievements (all crafting/placement/mining/combat)
+  without removing the existing incentive to drink; instead, drink becomes one early-step
+  component that saturates and then stops dominating behavior.'
+raw_response: '{"prompt":"You are writing a reward function for a reinforcement learning
+  agent in Crafter, a 2D open-world survival game.\n\nYour reward is the ONLY learning
+  signal. It must strongly improve the Crafter Score (geometric mean across 22 achievement
+  success rates), which requires BREADTH: the agent should unlock many different achievements
+  in one episode, not just farm a single easy one (e.g., drink).\n\nGenerate a Python
+  function `compute_reward(current_step, prev_step, terminated, truncated)` that uses
+  ONLY the provided step dicts (action, pos, inventory, achievements) to produce a
+  dense shaping reward that:\n1) prioritizes UNLOCKING NEW ACHIEVEMENTS (largest reward)\n2)
+  provides intermediate shaping toward the technology tree prerequisites (smaller
+  reward)\n3) keeps the agent ALIVE by maintaining vitals (food/drink/energy/health)\n4)
+  discourages wasting steps on actions that have no effect\n5) avoids reward-hacking
+  loops (e.g., repeatedly collecting drink/wood forever)\n\n=== ENVIRONMENT ===\n\nCrafter
+  is a procedurally generated 2D world where the agent must survive and progress through
+  a technology tree. The agent starts with basic vitals (health, food, drink, energy)
+  and must gather resources, craft tools, build structures, and fight monsters.\n\nEpisodes
+  last up to ~1000 steps. The episode ends if the agent''s health reaches 0 (terminated=True)
+  or the time limit is hit (truncated=True).\n\n=== TECHNOLOGY TREE (dependency chain)
+  ===\n\nGathering (using \"do\" on the right terrain/object):\n- wood, sapling, drink:
+  no tool needed\n- stone, coal: requires wood_pickaxe\n- iron: requires stone_pickaxe\n-
+  diamond: requires iron_pickaxe\nFood:\n- eat_cow, eat_plant\n\nPlacement (consumes
+  materials):\n- place_table: requires wood (enables pickaxe/sword crafting)\n- place_furnace:
+  requires stone (enables stone/iron tool crafting)\n- place_plant: requires sapling
+  (grows food source)\n- place_stone: requires stone (walls)\n\nCrafting (must be
+  near the right workstation; actions silently fail if prerequisites not met):\n-
+  wood_pickaxe / wood_sword: requires wood + nearby table\n- stone_pickaxe / stone_sword:
+  requires wood + stone + nearby table + furnace\n- iron_pickaxe / iron_sword: requires
+  wood + iron + nearby table + furnace\n\n=== ACHIEVEMENTS (22) ===\n\nThese track
+  lifetime progress and never reset within an episode:\ncollect_coal, collect_diamond,
+  collect_drink, collect_iron,\ncollect_sapling, collect_stone, collect_wood, defeat_skeleton,\ndefeat_zombie,
+  eat_cow, eat_plant, make_iron_pickaxe,\nmake_iron_sword, make_stone_pickaxe, make_stone_sword,\nmake_wood_pickaxe,
+  make_wood_sword, place_furnace,\nplace_plant, place_stone, place_table, wake_up\n\nEach
+  achievement is 0 (locked) or >=1 (unlocked). \"wake_up\" is unlocked at the start
+  of every episode.\n\n=== ACTIONS ===\n\n17 discrete actions:\n0 noop, 1 left, 2
+  right, 3 up, 4 down, 5 do, 6 sleep,\n7 place_stone, 8 place_table, 9 place_furnace,
+  10 place_plant,\n11 make_wood_pickaxe, 12 make_stone_pickaxe, 13 make_iron_pickaxe,\n14
+  make_wood_sword, 15 make_stone_sword, 16 make_iron_sword\n\n=== FUNCTION SIGNATURE
+  ===\n\nWrite a Python function with this exact signature:\n\ndef compute_reward(current_step,
+  prev_step, terminated, truncated):\n    \"\"\"\n    Args:\n        current_step:
+  dict with keys described below\n        prev_step: dict with same keys, or None
+  on the first step of an episode\n        terminated: bool, True if the agent died
+  (health reached 0)\n        truncated: bool, True if the episode hit the time limit\n\n    Returns:\n        float:
+  scalar reward for this step\n    \"\"\"\n\n=== step_state schema ===\n\nBoth current_step
+  and prev_step are dicts with these keys:\n- action: int (0-16)\n- pos: tuple[int,int]\n-
+  inventory: dict[str,int]\n- achievements: dict[str,int]\n\nInventory keys:\nVitals
+  (0-9): health, food, drink, energy\nMaterials: wood, stone, coal, iron, diamond,
+  sapling\nTools: wood_pickaxe, stone_pickaxe, iron_pickaxe, wood_sword, stone_sword,
+  iron_sword\n\n=== OUTPUT CONSTRAINTS (must follow exactly) ===\n\n- Return your
+  response as a JSON object with a single key \"code\" containing the complete function
+  as a string.\n- The function must return a single float value.\n- Do NOT import
+  any external libraries (no numpy/math/etc.). Only Python builtins.\n- The function
+  must be named exactly compute_reward.\n- The function must accept exactly the four
+  parameters listed above, in that order.\n- Handle prev_step is None (first step).\n-
+  The \"code\" value must contain ONLY the function definition.\n\n=== WHAT IS CURRENTLY
+  GOING WRONG (you must fix via reward design) ===\n\nObserved training/eval behavior:\n-
+  Only easy early achievements are sometimes reached (collect_drink ~45%, collect_sapling
+  ~20%, collect_wood ~15%).\n- Everything requiring crafting/placement/tools/combat
+  is ~0%.\n\nThis indicates the reward is not providing a strong enough curriculum
+  toward:\nplace_table -> make_wood_pickaxe -> collect_stone/coal -> place_furnace
+  -> make_stone_pickaxe -> collect_iron -> iron tools -> diamond, plus survival (eat/drink)
+  and combat.\n\n=== REWARD DESIGN REQUIREMENTS (be explicit and implement them) ===\n\nImplement
+  reward as a weighted sum of these components. Use deltas between current_step and
+  prev_step.\n\n1) BIG SPARSE BONUS FOR NEW ACHIEVEMENTS (main driver)\n- When any
+  achievement changes from 0 to >=1 this step, add a large positive bonus.\n- Use
+  higher bonuses for later/harder achievements, but do NOT make early achievements
+  so valuable that the agent farms them forever.\n- Do NOT reward \"wake_up\" (or
+  give it ~0) since it is automatic.\n\nSuggested achievement bonus weights (you may
+  hardcode a dict):\n- Early gather/sustain: collect_wood 3, collect_sapling 3, collect_drink
+  3, eat_plant 4, eat_cow 4\n- Build/craft early: place_table 8, make_wood_pickaxe
+  10, make_wood_sword 6\n- Mid gather/build: collect_stone 8, collect_coal 8, place_furnace
+  12, make_stone_pickaxe 14, make_stone_sword 10, place_stone 6, place_plant 6\n-
+  Late: collect_iron 16, make_iron_pickaxe 20, make_iron_sword 16\n- Endgame: collect_diamond
+  30\n- Combat: defeat_zombie 12, defeat_skeleton 14\n(These are shaping suggestions;
+  keep magnitudes comparable and stable.)\n\n2) DENSE SHAPING FOR INVENTORY PROGRESS
+  (smaller than achievements)\nReward ONLY positive, meaningful progress and cap it
+  so it cannot be farmed indefinitely.\n- Give small reward for increasing key materials/tools,
+  but only up to a target amount.\n  Example targets: wood up to 6, sapling up to
+  3, stone up to 6, coal up to 4, iron up to 4, diamond up to 2.\n- Reward tool acquisition
+  (wood_pickaxe/stone_pickaxe/iron_pickaxe and swords) for first 1 unit only (since
+  multiples are not needed).\n- Use delta of clipped inventory: (min(cur, target)
+  - min(prev, target)) so repeated collecting past target gives 0 reward.\n\n3) STAGED
+  / CURRICULUM BIAS (critical)\nAdd an extra small multiplier/bonus that focuses the
+  agent on the NEXT missing milestone:\n- If place_table not yet achieved: prioritize
+  collecting wood (up to target) and successful table placement.\n- Else if make_wood_pickaxe
+  not yet achieved: prioritize wood (and attempting to craft) and crafting success.\n-
+  Else if collect_stone/coal not achieved: prioritize stone/coal gains.\n- Else if
+  place_furnace not achieved: prioritize stone and furnace placement.\n- Else if make_stone_pickaxe
+  not achieved: prioritize iron prerequisites and crafting success.\n- Else if collect_iron
+  not achieved: prioritize iron gains.\n- Else: continue toward iron tools, diamond,
+  combat.\n\nImplement this as simple logic that increases weights for certain inventory
+  deltas / achievement unlocks depending on what is still locked.\n\n4) SURVIVAL SHAPING
+  (must prevent dying while crafting)\n- Strong penalty on death (terminated=True):
+  e.g., -25.\n- Small per-step alive bonus (e.g., +0.01) is OK.\n- Add penalties when
+  vitals are critically low to force eating/drinking/sleeping:\n  * If food<=1: penalty\n  *
+  If drink<=1: penalty\n  * If energy<=1: penalty\n  * If health decreases this step:
+  small penalty proportional to drop\n- Add a small positive reward for increasing
+  food/drink/energy/health (e.g., when the agent eats/drinks/sleeps), but keep it
+  smaller than achievement bonuses.\n\n5) ANTI-WASTE / ACTIVITY\n- Penalize noop (action==0)
+  slightly.\n- Penalize failed craft/place actions: if action is in {7..16} and BOTH
+  achievements and inventory are unchanged vs prev_step, apply a small negative reward.\n-
+  Encourage movement a tiny amount (pos change) ONLY if nothing else changed, to reduce
+  getting stuck (very small, e.g., +0.001).\n\n6) SAFETY / STABILITY\n- Handle prev_step=None
+  by returning 0.0.\n- Keep reward magnitudes bounded. After summing components, clip
+  final reward to a reasonable range (e.g., [-30, +30]) to stabilize RL.\n- Use only
+  Python builtins.\n\n=== FINAL OUTPUT ===\nReturn your response as JSON with key
+  \"code\" containing ONLY the function definition string.\n","reasoning":"Diagnosis
+  from metrics: the agent reliably finds water (collect_drink 45%) but almost never
+  progresses into the tech tree (0% table/pickaxe/stone/furnace/iron/diamond, 0% food
+  and combat). This pattern strongly suggests the current reward is either (a) too
+  focused on simple survival signals (e.g., drink) and/or (b) too sparse/uninformative
+  for multi-step prerequisites like placing a table then crafting a pickaxe then mining
+  stone. Because Crafter Score is a geometric mean across 22 achievements, over-rewarding
+  a single easy achievement hurts breadth: the agent can get decent reward without
+  ever crafting.\n\nPrompt changes to address failures while preserving what works:\n-
+  Make achievement unlocks the dominant reward signal with a calibrated weight schedule
+  so the agent is pushed from early gathering into building/crafting and later goals.\n-
+  Add capped dense shaping on inventory deltas (clipped to targets) so gathering wood/sapling/drink
+  helps initially but cannot be farmed forever.\n- Add explicit curriculum logic (next-milestone
+  bias) to bridge long dependencies: wood -> table -> wood_pickaxe -> stone/coal ->
+  furnace -> stone_pickaxe -> iron -> iron tools -> diamond, plus food/combat.\n-
+  Add survival shaping (low-vital penalties, reward for increases, death penalty)
+  so the agent can pursue crafting without dying, which is necessary to reach harder
+  achievements.\n- Add anti-waste penalties for noops and failed craft/place actions
+  (detectable via unchanged inventory+achievements) to reduce random ineffective behavior.\n-
+  Require reward clipping for stability.\n\nThese changes specifically target the
+  missing achievements (all crafting/placement/mining/combat) without removing the
+  existing incentive to drink; instead, drink becomes one early-step component that
+  saturates and then stops dominating behavior."}'
+usage:
+  prompt_tokens: 2150
+  completion_tokens: 3838
+  total_tokens: 5988

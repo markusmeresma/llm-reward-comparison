@@ -1,0 +1,166 @@
+You are writing a reward function for a reinforcement learning agent in Crafter, a 2D open-world survival game.
+
+Your reward is the ONLY learning signal. It must strongly improve the Crafter Score (geometric mean across 22 achievement success rates), which requires BREADTH: the agent should unlock many different achievements in one episode, not just farm a single easy one (e.g., drink).
+
+Generate a Python function `compute_reward(current_step, prev_step, terminated, truncated)` that uses ONLY the provided step dicts (action, pos, inventory, achievements) to produce a dense shaping reward that:
+1) prioritizes UNLOCKING NEW ACHIEVEMENTS (largest reward)
+2) provides intermediate shaping toward the technology tree prerequisites (smaller reward)
+3) keeps the agent ALIVE by maintaining vitals (food/drink/energy/health)
+4) discourages wasting steps on actions that have no effect
+5) avoids reward-hacking loops (e.g., repeatedly collecting drink/wood forever)
+
+=== ENVIRONMENT ===
+
+Crafter is a procedurally generated 2D world where the agent must survive and progress through a technology tree. The agent starts with basic vitals (health, food, drink, energy) and must gather resources, craft tools, build structures, and fight monsters.
+
+Episodes last up to ~1000 steps. The episode ends if the agent's health reaches 0 (terminated=True) or the time limit is hit (truncated=True).
+
+=== TECHNOLOGY TREE (dependency chain) ===
+
+Gathering (using "do" on the right terrain/object):
+- wood, sapling, drink: no tool needed
+- stone, coal: requires wood_pickaxe
+- iron: requires stone_pickaxe
+- diamond: requires iron_pickaxe
+Food:
+- eat_cow, eat_plant
+
+Placement (consumes materials):
+- place_table: requires wood (enables pickaxe/sword crafting)
+- place_furnace: requires stone (enables stone/iron tool crafting)
+- place_plant: requires sapling (grows food source)
+- place_stone: requires stone (walls)
+
+Crafting (must be near the right workstation; actions silently fail if prerequisites not met):
+- wood_pickaxe / wood_sword: requires wood + nearby table
+- stone_pickaxe / stone_sword: requires wood + stone + nearby table + furnace
+- iron_pickaxe / iron_sword: requires wood + iron + nearby table + furnace
+
+=== ACHIEVEMENTS (22) ===
+
+These track lifetime progress and never reset within an episode:
+collect_coal, collect_diamond, collect_drink, collect_iron,
+collect_sapling, collect_stone, collect_wood, defeat_skeleton,
+defeat_zombie, eat_cow, eat_plant, make_iron_pickaxe,
+make_iron_sword, make_stone_pickaxe, make_stone_sword,
+make_wood_pickaxe, make_wood_sword, place_furnace,
+place_plant, place_stone, place_table, wake_up
+
+Each achievement is 0 (locked) or >=1 (unlocked). "wake_up" is unlocked at the start of every episode.
+
+=== ACTIONS ===
+
+17 discrete actions:
+0 noop, 1 left, 2 right, 3 up, 4 down, 5 do, 6 sleep,
+7 place_stone, 8 place_table, 9 place_furnace, 10 place_plant,
+11 make_wood_pickaxe, 12 make_stone_pickaxe, 13 make_iron_pickaxe,
+14 make_wood_sword, 15 make_stone_sword, 16 make_iron_sword
+
+=== FUNCTION SIGNATURE ===
+
+Write a Python function with this exact signature:
+
+def compute_reward(current_step, prev_step, terminated, truncated):
+    """
+    Args:
+        current_step: dict with keys described below
+        prev_step: dict with same keys, or None on the first step of an episode
+        terminated: bool, True if the agent died (health reached 0)
+        truncated: bool, True if the episode hit the time limit
+
+    Returns:
+        float: scalar reward for this step
+    """
+
+=== step_state schema ===
+
+Both current_step and prev_step are dicts with these keys:
+- action: int (0-16)
+- pos: tuple[int,int]
+- inventory: dict[str,int]
+- achievements: dict[str,int]
+
+Inventory keys:
+Vitals (0-9): health, food, drink, energy
+Materials: wood, stone, coal, iron, diamond, sapling
+Tools: wood_pickaxe, stone_pickaxe, iron_pickaxe, wood_sword, stone_sword, iron_sword
+
+=== OUTPUT CONSTRAINTS (must follow exactly) ===
+
+- Return your response as a JSON object with a single key "code" containing the complete function as a string.
+- The function must return a single float value.
+- Do NOT import any external libraries (no numpy/math/etc.). Only Python builtins.
+- The function must be named exactly compute_reward.
+- The function must accept exactly the four parameters listed above, in that order.
+- Handle prev_step is None (first step).
+- The "code" value must contain ONLY the function definition.
+
+=== WHAT IS CURRENTLY GOING WRONG (you must fix via reward design) ===
+
+Observed training/eval behavior:
+- Only easy early achievements are sometimes reached (collect_drink ~45%, collect_sapling ~20%, collect_wood ~15%).
+- Everything requiring crafting/placement/tools/combat is ~0%.
+
+This indicates the reward is not providing a strong enough curriculum toward:
+place_table -> make_wood_pickaxe -> collect_stone/coal -> place_furnace -> make_stone_pickaxe -> collect_iron -> iron tools -> diamond, plus survival (eat/drink) and combat.
+
+=== REWARD DESIGN REQUIREMENTS (be explicit and implement them) ===
+
+Implement reward as a weighted sum of these components. Use deltas between current_step and prev_step.
+
+1) BIG SPARSE BONUS FOR NEW ACHIEVEMENTS (main driver)
+- When any achievement changes from 0 to >=1 this step, add a large positive bonus.
+- Use higher bonuses for later/harder achievements, but do NOT make early achievements so valuable that the agent farms them forever.
+- Do NOT reward "wake_up" (or give it ~0) since it is automatic.
+
+Suggested achievement bonus weights (you may hardcode a dict):
+- Early gather/sustain: collect_wood 3, collect_sapling 3, collect_drink 3, eat_plant 4, eat_cow 4
+- Build/craft early: place_table 8, make_wood_pickaxe 10, make_wood_sword 6
+- Mid gather/build: collect_stone 8, collect_coal 8, place_furnace 12, make_stone_pickaxe 14, make_stone_sword 10, place_stone 6, place_plant 6
+- Late: collect_iron 16, make_iron_pickaxe 20, make_iron_sword 16
+- Endgame: collect_diamond 30
+- Combat: defeat_zombie 12, defeat_skeleton 14
+(These are shaping suggestions; keep magnitudes comparable and stable.)
+
+2) DENSE SHAPING FOR INVENTORY PROGRESS (smaller than achievements)
+Reward ONLY positive, meaningful progress and cap it so it cannot be farmed indefinitely.
+- Give small reward for increasing key materials/tools, but only up to a target amount.
+  Example targets: wood up to 6, sapling up to 3, stone up to 6, coal up to 4, iron up to 4, diamond up to 2.
+- Reward tool acquisition (wood_pickaxe/stone_pickaxe/iron_pickaxe and swords) for first 1 unit only (since multiples are not needed).
+- Use delta of clipped inventory: (min(cur, target) - min(prev, target)) so repeated collecting past target gives 0 reward.
+
+3) STAGED / CURRICULUM BIAS (critical)
+Add an extra small multiplier/bonus that focuses the agent on the NEXT missing milestone:
+- If place_table not yet achieved: prioritize collecting wood (up to target) and successful table placement.
+- Else if make_wood_pickaxe not yet achieved: prioritize wood (and attempting to craft) and crafting success.
+- Else if collect_stone/coal not achieved: prioritize stone/coal gains.
+- Else if place_furnace not achieved: prioritize stone and furnace placement.
+- Else if make_stone_pickaxe not achieved: prioritize iron prerequisites and crafting success.
+- Else if collect_iron not achieved: prioritize iron gains.
+- Else: continue toward iron tools, diamond, combat.
+
+Implement this as simple logic that increases weights for certain inventory deltas / achievement unlocks depending on what is still locked.
+
+4) SURVIVAL SHAPING (must prevent dying while crafting)
+- Strong penalty on death (terminated=True): e.g., -25.
+- Small per-step alive bonus (e.g., +0.01) is OK.
+- Add penalties when vitals are critically low to force eating/drinking/sleeping:
+  * If food<=1: penalty
+  * If drink<=1: penalty
+  * If energy<=1: penalty
+  * If health decreases this step: small penalty proportional to drop
+- Add a small positive reward for increasing food/drink/energy/health (e.g., when the agent eats/drinks/sleeps), but keep it smaller than achievement bonuses.
+
+5) ANTI-WASTE / ACTIVITY
+- Penalize noop (action==0) slightly.
+- Penalize failed craft/place actions: if action is in {7..16} and BOTH achievements and inventory are unchanged vs prev_step, apply a small negative reward.
+- Encourage movement a tiny amount (pos change) ONLY if nothing else changed, to reduce getting stuck (very small, e.g., +0.001).
+
+6) SAFETY / STABILITY
+- Handle prev_step=None by returning 0.0.
+- Keep reward magnitudes bounded. After summing components, clip final reward to a reasonable range (e.g., [-30, +30]) to stabilize RL.
+- Use only Python builtins.
+
+=== FINAL OUTPUT ===
+Return your response as JSON with key "code" containing ONLY the function definition string.
+
