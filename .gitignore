@@ -24,6 +24,12 @@ experiments/**
 # 1M timesteps, implicit reward with GPT 5.2, seed=42
 !experiments/crafter_implicit_openai-gpt-5.2_seed42_20260225_090107
 !experiments/crafter_implicit_openai-gpt-5.2_seed42_20260225_090107**
+# 1M timesteps, implicit reward with GPT 5.2, seed=123
+!experiments/crafter_implicit_openai-gpt-5.2_seed123_20260307_144740
+!experiments/crafter_implicit_openai-gpt-5.2_seed123_20260307_144740/**
+# 1M timesteps, implicit reward with GPT 5.2, seed=456
+!experiments/crafter_implicit_openai-gpt-5.2_seed456_20260308_093516
+!experiments/crafter_implicit_openai-gpt-5.2_seed456_20260308_093516/**
 # 1M timesteps, ground truth, seed=42
 !experiments/crafter_ground_truth_seed42_20260303_155627
 !experiments/crafter_ground_truth_seed42_20260303_155627/**
