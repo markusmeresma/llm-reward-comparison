@@ -33,9 +33,15 @@ def create_reward_model(adapter, config: dict, run_id: str, log_dir: Path) -> Re
             config["llm_provider"], config["llm_model"], config["llm_temperature"]
         )
         llm_client = LLMClient(provider, log_dir, run_id)
+        
+        if 'prompt_path' in config:
+            task_prompt = Path(config["prompt_path"]).read_text().strip()
+        else:
+            task_prompt = load_prompt(config["env_alias"], config["prompt_version"])
+        
         return ImplicitRewardModel(
             llm_client=llm_client,
-            task_prompt=load_prompt(config["env_alias"], config["prompt_version"]),
+            task_prompt=task_prompt,
             adapter=adapter,
             segment_length=config["segment_length"]
         )
@@ -86,9 +92,9 @@ def main():
     run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     run_name = f"{config['env_alias']}_{config['reward_model']}_seed{seed}_{run_id}"
     if config["reward_model"] == "implicit":
-        # Extract the model tag to identify which model this training run used
         model_tag = config["llm_model"].replace("/", "-")
-        run_name = f"{config['env_alias']}_{config['reward_model']}_{model_tag}_seed{seed}_{run_id}"
+        prompt_tag = "_opt" if "prompt_path" in config else ""
+        run_name = f"{config['env_alias']}_{config['reward_model']}_{model_tag}{prompt_tag}_seed{seed}_{run_id}"
     elif config["reward_model"] == "explicit":
         # Extract the generation directory name (e.g. "crafter_openai-gpt-5.2_20260303_120000")
         # to identify which generated code this training run used

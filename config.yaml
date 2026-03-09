@@ -6,6 +6,7 @@
 # MiniGrid: K=16 gives ~1-3 segments per episode (~20-50 steps).
 defaults:
   llm_temperature: 0.0
+  optimiser_temperature: 0.0
   seed: 42
 
 envs:

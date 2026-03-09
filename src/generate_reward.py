@@ -7,8 +7,10 @@ Usage (from project root):
 import argparse
 import logging
 
+from pathlib import Path
+
 from dotenv import load_dotenv
-from config import load_config, ALL_SUPPORTED_MODELS
+from config import load_config, load_prompt, ALL_SUPPORTED_MODELS
 from explicit_generation import generate_reward_code
 
 logging.basicConfig(
@@ -36,6 +38,11 @@ def parse_args() -> argparse.Namespace:
         choices=ALL_SUPPORTED_MODELS,
         help=f"LLM model to use. Supported: {', '.join(ALL_SUPPORTED_MODELS)}",
     )
+    parser.add_argument(
+        "--prompt-path",
+        required=False,
+        help="Path to a prompt file (overrides explicit_prompt_version from config)",
+    )
     return parser.parse_args()
 
 def main():
@@ -49,10 +56,18 @@ def main():
     prompt_version = env_cfg["explicit_prompt_version"]
     temperature = defaults["llm_temperature"]
     
+    if args.prompt_path:
+        prompt_text = Path(args.prompt_path).read_text().strip()
+        prompt_source = args.prompt_path
+    else:
+        prompt_text = load_prompt(args.env, prompt_version)
+        prompt_source = prompt_version
+    
     output_dir = generate_reward_code(
         env_alias=args.env,
         llm_model=args.llm_model,
-        prompt_version=prompt_version,
+        prompt_text=prompt_text,
+        prompt_source=prompt_source,
         temperature=temperature,
     )
 

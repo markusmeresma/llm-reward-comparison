@@ -104,18 +104,19 @@ class TestGenerateRewardCode:
         )
 
     @patch("explicit_generation.create_provider")
-    @patch("explicit_generation.load_prompt", return_value="generate a reward function")
     @patch("explicit_generation.get_project_root")
     @patch("explicit_generation.infer_provider_for_model", return_value="openrouter")
     def test_first_attempt_success(
-        self, mock_infer, mock_root, mock_prompt, mock_create, tmp_path
+        self, mock_infer, mock_root, mock_create, tmp_path
     ):
         mock_provider = MagicMock()
         mock_provider.chat_complete.return_value = self._make_response(VALID_CODE)
         mock_create.return_value = mock_provider
         mock_root.return_value = tmp_path
 
-        output_dir = generate_reward_code("crafter", "openai/gpt-5.2", "v1", 0.0)
+        output_dir = generate_reward_code(
+            "crafter", "openai/gpt-5.2", "generate a reward function", "v1", 0.0
+        )
 
         assert (output_dir / "reward_fn.py").exists()
         assert (output_dir / "metadata.yaml").exists()
@@ -124,11 +125,10 @@ class TestGenerateRewardCode:
         mock_provider.chat_complete.assert_called_once()
 
     @patch("explicit_generation.create_provider")
-    @patch("explicit_generation.load_prompt", return_value="generate a reward function")
     @patch("explicit_generation.get_project_root")
     @patch("explicit_generation.infer_provider_for_model", return_value="openrouter")
     def test_retry_on_validation_failure(
-        self, mock_infer, mock_root, mock_prompt, mock_create, tmp_path
+        self, mock_infer, mock_root, mock_create, tmp_path
     ):
         bad_response = self._make_response("def wrong_name(): pass")
         good_response = self._make_response(VALID_CODE)
@@ -137,7 +137,9 @@ class TestGenerateRewardCode:
         mock_create.return_value = mock_provider
         mock_root.return_value = tmp_path
 
-        output_dir = generate_reward_code("crafter", "openai/gpt-5.2", "v1", 0.0)
+        output_dir = generate_reward_code(
+            "crafter", "openai/gpt-5.2", "generate a reward function", "v1", 0.0
+        )
 
         assert (output_dir / "reward_fn.py").exists()
         assert mock_provider.chat_complete.call_count == 2
@@ -149,11 +151,10 @@ class TestGenerateRewardCode:
         assert "compute_reward" in meta["errors"][0]
 
     @patch("explicit_generation.create_provider")
-    @patch("explicit_generation.load_prompt", return_value="generate a reward function")
     @patch("explicit_generation.get_project_root")
     @patch("explicit_generation.infer_provider_for_model", return_value="openrouter")
     def test_all_attempts_fail_raises_runtime_error(
-        self, mock_infer, mock_root, mock_prompt, mock_create, tmp_path
+        self, mock_infer, mock_root, mock_create, tmp_path
     ):
         bad_response = self._make_response("not valid python {{{{")
         mock_provider = MagicMock()
@@ -162,16 +163,17 @@ class TestGenerateRewardCode:
         mock_root.return_value = tmp_path
 
         with pytest.raises(RuntimeError, match=f"All {MAX_ATTEMPTS}"):
-            generate_reward_code("crafter", "openai/gpt-5.2", "v1", 0.0)
+            generate_reward_code(
+                "crafter", "openai/gpt-5.2", "generate a reward function", "v1", 0.0
+            )
 
         assert mock_provider.chat_complete.call_count == MAX_ATTEMPTS
 
     @patch("explicit_generation.create_provider")
-    @patch("explicit_generation.load_prompt", return_value="generate a reward function")
     @patch("explicit_generation.get_project_root")
     @patch("explicit_generation.infer_provider_for_model", return_value="openrouter")
     def test_metadata_records_usage(
-        self, mock_infer, mock_root, mock_prompt, mock_create, tmp_path
+        self, mock_infer, mock_root, mock_create, tmp_path
     ):
         usage = Usage(prompt_tokens=100, completion_tokens=200, total_tokens=300)
         mock_provider = MagicMock()
@@ -179,7 +181,9 @@ class TestGenerateRewardCode:
         mock_create.return_value = mock_provider
         mock_root.return_value = tmp_path
 
-        output_dir = generate_reward_code("crafter", "openai/gpt-5.2", "v1", 0.7)
+        output_dir = generate_reward_code(
+            "crafter", "openai/gpt-5.2", "generate a reward function", "v1", 0.7
+        )
 
         import yaml
         meta = yaml.safe_load((output_dir / "metadata.yaml").read_text())

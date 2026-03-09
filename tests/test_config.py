@@ -196,3 +196,35 @@ def test_explicit_config_excludes_llm_fields(monkeypatch, tmp_path):
 
     assert "llm_provider" not in resolved
     assert "llm_model" not in resolved
+
+
+# --- Additional config validation ---
+
+def test_implicit_requires_llm_model(monkeypatch):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+
+    with pytest.raises(ValueError, match="--llm-model is required"):
+        config.load_train_config(
+            ["--env", "crafter", "--reward-model", "implicit"]
+        )
+
+
+def test_total_timesteps_override(monkeypatch):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+
+    resolved = config.load_train_config(
+        ["--env", "crafter", "--reward-model", "ground_truth",
+         "--total-timesteps", "5000"]
+    )
+
+    assert resolved["total_timesteps"] == 5000
+
+
+def test_prompt_path_rejected_with_non_implicit(monkeypatch):
+    monkeypatch.setattr(config, "load_config", _sample_raw_config)
+
+    with pytest.raises(ValueError, match="--prompt-path is only supported"):
+        config.load_train_config(
+            ["--env", "crafter", "--reward-model", "ground_truth",
+             "--prompt-path", "some/path.txt"]
+        )

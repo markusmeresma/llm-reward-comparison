@@ -20,7 +20,7 @@ from pathlib import Path
 
 import yaml
 
-from config import get_project_root, load_prompt, infer_provider_for_model
+from config import get_project_root, infer_provider_for_model
 from llm_client import create_provider
 from llm_schemas.code_response import code_generation_response
 
@@ -112,7 +112,8 @@ def validate_reward_code(code: str) -> None:
 def generate_reward_code(
     env_alias: str,
     llm_model: str,
-    prompt_version: str,
+    prompt_text: str,
+    prompt_source: str,
     temperature: float,
 ) -> Path:
     """Generate a reward function via LLM and save to generated_rewards/.
@@ -124,7 +125,8 @@ def generate_reward_code(
     Args:
         env_alias: Environment name ("crafter" or "minigrid").
         llm_model: Full model identifier (e.g. "openai/gpt-5.2").
-        prompt_version: Name of the prompt template file (without .txt extension).
+        prompt_text: The full prompt text to send to the LLM.
+        prompt_source: Provenance string for metadata (version name or file path).
         temperature: LLM sampling temperature.
 
     Returns:
@@ -133,8 +135,6 @@ def generate_reward_code(
     Raises:
         RuntimeError: If all MAX_ATTEMPTS attempts fail validation.
     """
-    prompt_text = load_prompt(env_alias, prompt_version)
-    
     provider_name = infer_provider_for_model(llm_model)
     provider = create_provider(provider_name, llm_model, temperature)
     
@@ -213,7 +213,7 @@ def generate_reward_code(
         "env": env_alias,
         "llm_model": llm_model,
         "llm_provider": provider_name,
-        "prompt_version": prompt_version,
+        "prompt_source": prompt_source,
         "temperature": temperature,
         "timestamp": timestamp,
         "attempts": len(raw_responses),

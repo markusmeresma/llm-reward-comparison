@@ -90,6 +90,14 @@ def parse_train_args(argv=None) -> argparse.Namespace:
         default=None,
         help="Total training timesteps (overrides config.yaml)",
     )
+    parser.add_argument(
+        "--prompt-path",
+        required=False,
+        help=(
+            "Path to a prompt file (overrides prompt_version from config). "
+            "Use with optimised prompts from optimise_prompt.py."
+        ),
+    )
     return parser.parse_args(argv)
 
 def load_train_config(argv=None) -> dict[str, Any]:
@@ -121,6 +129,11 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "seed": defaults["seed"],
         "segment_length": env_cfg["segment_length"],
     }
+    
+    if args.prompt_path:
+        if args.reward_model != "implicit":
+            raise ValueError("--prompt-path is only supported with --reward-model implicit")
+        resolved["prompt_path"] = args.prompt_path
     
     if args.total_timesteps is not None:
         resolved["total_timesteps"] = args.total_timesteps
