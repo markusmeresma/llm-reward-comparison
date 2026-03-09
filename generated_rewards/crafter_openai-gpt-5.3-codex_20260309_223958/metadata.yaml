@@ -1,0 +1,92 @@
+env: crafter
+llm_model: openai/gpt-5.3-codex
+llm_provider: openrouter
+prompt_source: optimised_prompts/crafter_explicit/iter1_20260309_223220/prompt.txt
+temperature: 0.0
+timestamp: '20260309_223958'
+attempts: 1
+errors: null
+raw_responses:
+- '{"code":"def compute_reward(current_step, prev_step, terminated, truncated):\n    \"\"\"\n    Args:\n        current_step:
+  dict with keys described below\n        prev_step: dict with same keys, or None
+  on the first step of an episode\n        terminated: bool, True if the agent died
+  (health reached 0)\n        truncated: bool, True if the episode hit the time limit\n\n    Returns:\n        float:
+  scalar reward for this step\n    \"\"\"\n    if prev_step is None:\n        return
+  0.0\n\n    reward = 0.0\n\n    cur_inv = current_step.get(\"inventory\", {})\n    prev_inv
+  = prev_step.get(\"inventory\", {})\n    cur_ach = current_step.get(\"achievements\",
+  {})\n    prev_ach = prev_step.get(\"achievements\", {})\n\n    def inv(key):\n        return
+  cur_inv.get(key, 0)\n\n    def pinv(key):\n        return prev_inv.get(key, 0)\n\n    def
+  unlocked(name):\n        return prev_ach.get(name, 0) < 1 and cur_ach.get(name,
+  0) >= 1\n\n    # 1) Large sparse rewards for newly unlocked achievements\n    ach_reward
+  = {\n        \"collect_wood\": 3.0,\n        \"collect_sapling\": 3.0,\n        \"collect_drink\":
+  3.0,\n        \"eat_plant\": 4.0,\n        \"eat_cow\": 4.0,\n        \"place_table\":
+  8.0,\n        \"make_wood_pickaxe\": 10.0,\n        \"make_wood_sword\": 6.0,\n        \"collect_stone\":
+  8.0,\n        \"collect_coal\": 8.0,\n        \"place_furnace\": 12.0,\n        \"make_stone_pickaxe\":
+  14.0,\n        \"make_stone_sword\": 10.0,\n        \"place_stone\": 6.0,\n        \"place_plant\":
+  6.0,\n        \"collect_iron\": 16.0,\n        \"make_iron_pickaxe\": 20.0,\n        \"make_iron_sword\":
+  16.0,\n        \"collect_diamond\": 30.0,\n        \"defeat_zombie\": 12.0,\n        \"defeat_skeleton\":
+  14.0,\n        \"wake_up\": 0.0,\n    }\n\n    unlock_count = 0\n    for k, w in
+  ach_reward.items():\n        if unlocked(k):\n            reward += w\n            unlock_count
+  += 1\n\n    # 2) Dense shaping from clipped inventory progress (anti-farming via
+  caps)\n    targets = {\n        \"wood\": 6,\n        \"sapling\": 3,\n        \"stone\":
+  6,\n        \"coal\": 4,\n        \"iron\": 4,\n        \"diamond\": 2,\n    }\n    inv_weights
+  = {\n        \"wood\": 0.30,\n        \"sapling\": 0.25,\n        \"stone\": 0.45,\n        \"coal\":
+  0.55,\n        \"iron\": 0.80,\n        \"diamond\": 1.20,\n    }\n\n    material_progress
+  = 0.0\n    for k, cap in targets.items():\n        d = min(inv(k), cap) - min(pinv(k),
+  cap)\n        if d > 0:\n            g = d * inv_weights[k]\n            reward
+  += g\n            material_progress += g\n\n    # Tools/swords: reward first acquisition
+  only\n    tools = {\n        \"wood_pickaxe\": 1.5,\n        \"stone_pickaxe\":
+  2.5,\n        \"iron_pickaxe\": 3.5,\n        \"wood_sword\": 1.0,\n        \"stone_sword\":
+  2.0,\n        \"iron_sword\": 3.0,\n    }\n    tool_progress = 0.0\n    for k, w
+  in tools.items():\n        d = min(inv(k), 1) - min(pinv(k), 1)\n        if d >
+  0:\n            g = d * w\n            reward += g\n            tool_progress +=
+  g\n\n    # 3) Curriculum bias toward next missing milestone\n    stage_bonus = 0.0\n    if
+  prev_ach.get(\"place_table\", 0) < 1:\n        wood_gain = max(0, min(inv(\"wood\"),
+  6) - min(pinv(\"wood\"), 6))\n        stage_bonus += 0.60 * wood_gain\n        if
+  unlocked(\"place_table\"):\n            stage_bonus += 3.0\n    elif prev_ach.get(\"make_wood_pickaxe\",
+  0) < 1:\n        wood_gain = max(0, min(inv(\"wood\"), 6) - min(pinv(\"wood\"),
+  6))\n        stage_bonus += 0.40 * wood_gain\n        if unlocked(\"make_wood_pickaxe\"):\n            stage_bonus
+  += 4.0\n    elif prev_ach.get(\"collect_stone\", 0) < 1 or prev_ach.get(\"collect_coal\",
+  0) < 1:\n        stone_gain = max(0, min(inv(\"stone\"), 6) - min(pinv(\"stone\"),
+  6))\n        coal_gain = max(0, min(inv(\"coal\"), 4) - min(pinv(\"coal\"), 4))\n        stage_bonus
+  += 0.80 * stone_gain + 0.90 * coal_gain\n        if unlocked(\"collect_stone\"):\n            stage_bonus
+  += 2.0\n        if unlocked(\"collect_coal\"):\n            stage_bonus += 2.0\n    elif
+  prev_ach.get(\"place_furnace\", 0) < 1:\n        stone_gain = max(0, min(inv(\"stone\"),
+  6) - min(pinv(\"stone\"), 6))\n        stage_bonus += 0.50 * stone_gain\n        if
+  unlocked(\"place_furnace\"):\n            stage_bonus += 4.0\n    elif prev_ach.get(\"make_stone_pickaxe\",
+  0) < 1:\n        iron_gain = max(0, min(inv(\"iron\"), 4) - min(pinv(\"iron\"),
+  4))\n        stage_bonus += 0.80 * iron_gain\n        if unlocked(\"make_stone_pickaxe\"):\n            stage_bonus
+  += 5.0\n    elif prev_ach.get(\"collect_iron\", 0) < 1:\n        iron_gain = max(0,
+  min(inv(\"iron\"), 4) - min(pinv(\"iron\"), 4))\n        stage_bonus += 1.00 * iron_gain\n        if
+  unlocked(\"collect_iron\"):\n            stage_bonus += 4.0\n    else:\n        diamond_gain
+  = max(0, min(inv(\"diamond\"), 2) - min(pinv(\"diamond\"), 2))\n        stage_bonus
+  += 2.0 * diamond_gain\n        if unlocked(\"collect_diamond\"):\n            stage_bonus
+  += 4.0\n        if unlocked(\"defeat_zombie\"):\n            stage_bonus += 2.0\n        if
+  unlocked(\"defeat_skeleton\"):\n            stage_bonus += 2.5\n\n    reward +=
+  stage_bonus\n\n    # 4) Survival shaping\n    if terminated:\n        reward -=
+  25.0\n    else:\n        reward += 0.01\n\n    food = inv(\"food\")\n    drink =
+  inv(\"drink\")\n    energy = inv(\"energy\")\n\n    if food <= 1:\n        reward
+  -= 0.8\n    if drink <= 1:\n        reward -= 0.8\n    if energy <= 1:\n        reward
+  -= 0.6\n\n    # Penalize damage, reward recovery (small)\n    health_drop = max(0,
+  pinv(\"health\") - inv(\"health\"))\n    if health_drop > 0:\n        reward -=
+  0.6 * health_drop\n\n    for k, w in ((\"food\", 0.12), (\"drink\", 0.12), (\"energy\",
+  0.10), (\"health\", 0.18)):\n        inc = inv(k) - pinv(k)\n        if inc > 0:\n            reward
+  += w * inc\n\n    # 5) Anti-waste / activity\n    action = current_step.get(\"action\",
+  0)\n    if action == 0:\n        reward -= 0.02\n\n    # Penalize failed place/craft
+  attempts when both achievements and inventory did not change\n    if 7 <= action
+  <= 16:\n        ach_same = True\n        keys_ach = set(prev_ach.keys()) | set(cur_ach.keys())\n        for
+  k in keys_ach:\n            if prev_ach.get(k, 0) != cur_ach.get(k, 0):\n                ach_same
+  = False\n                break\n\n        inv_same = True\n        keys_inv = set(prev_inv.keys())
+  | set(cur_inv.keys())\n        for k in keys_inv:\n            if prev_inv.get(k,
+  0) != cur_inv.get(k, 0):\n                inv_same = False\n                break\n\n        if
+  ach_same and inv_same:\n            reward -= 0.20\n\n    # Tiny movement bonus
+  only when no substantive progress happened\n    pos_prev = prev_step.get(\"pos\",
+  None)\n    pos_cur = current_step.get(\"pos\", None)\n    if pos_prev is not None
+  and pos_cur is not None and pos_prev != pos_cur:\n        if unlock_count == 0 and
+  material_progress <= 0 and tool_progress <= 0:\n            reward += 0.001\n\n    #
+  6) Stability clipping\n    if reward > 30.0:\n        reward = 30.0\n    elif reward
+  < -30.0:\n        reward = -30.0\n\n    return float(reward)"}'
+usage:
+  prompt_tokens: 2189
+  completion_tokens: 2937
+  total_tokens: 5126

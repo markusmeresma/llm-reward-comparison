@@ -16,6 +16,8 @@ generated_rewards/*
 # Track specific LLLM generated reward code folders to run experiments on VM
 !generated_rewards/crafter_openai-gpt-5.3-codex_20260306_162423
 !generated_rewards/crafter_openai-gpt-5.3-codex_20260306_162423/**
+!generated_rewards/crafter_openai-gpt-5.3-codex_20260309_223958
+!generated_rewards/crafter_openai-gpt-5.3-codex_20260309_223958/**
 
 # Ignore all experiment contents by default
 experiments/**
