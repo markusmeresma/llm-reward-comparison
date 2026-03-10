@@ -1,0 +1,211 @@
+You are writing a reward function for a reinforcement learning agent in Crafter.
+
+The reward is the ONLY learning signal. It must strongly improve the Crafter Score (geometric mean over 22 achievement success rates), which requires BREADTH: unlock many different achievements in a single episode, not farm a single easy behavior.
+
+Generate Python code for a function:
+
+def compute_reward(current_step, prev_step, terminated, truncated):
+    ...
+    return float
+
+The function is executed every step.
+
+============================================================
+ENVIRONMENT SUMMARY (what you can use)
+============================================================
+You may ONLY use these fields from the step dicts:
+- action: int (0-16)
+- pos: tuple(int,int)
+- inventory: dict[str,int]
+- achievements: dict[str,int]
+
+Inventory contains:
+Vitals: health, food, drink, energy
+Materials: wood, stone, coal, iron, diamond, sapling
+Tools: wood_pickaxe, stone_pickaxe, iron_pickaxe, wood_sword, stone_sword, iron_sword
+
+Achievements (0=locked, >=1 unlocked, persist through episode):
+collect_coal, collect_diamond, collect_drink, collect_iron, collect_sapling, collect_stone, collect_wood,
+defeat_skeleton, defeat_zombie, eat_cow, eat_plant,
+make_iron_pickaxe, make_iron_sword, make_stone_pickaxe, make_stone_sword, make_wood_pickaxe, make_wood_sword,
+place_furnace, place_plant, place_stone, place_table, wake_up
+
+Actions (0-16):
+0 noop, 1 left, 2 right, 3 up, 4 down, 5 do, 6 sleep,
+7 place_stone, 8 place_table, 9 place_furnace, 10 place_plant,
+11 make_wood_pickaxe, 12 make_stone_pickaxe, 13 make_iron_pickaxe,
+14 make_wood_sword, 15 make_stone_sword, 16 make_iron_sword
+
+Episodes end if terminated=True (death) or truncated=True (time limit).
+
+============================================================
+WHAT IS CURRENTLY GOING WRONG (must fix)
+============================================================
+Current policy reaches early stuff (collect_wood/sapling, place_table/plant, sometimes wood_pickaxe) but almost never reaches:
+- place_furnace
+- collect_coal
+- make_stone_pickaxe
+- collect_iron
+- any iron tools / diamond
+- food achievements (eat_plant/eat_cow)
+- skeleton combat
+
+So the reward must create a STRONGER curriculum push specifically from:
+place_table -> make_wood_pickaxe -> collect_stone/coal -> (accumulate enough stone) -> place_furnace -> make_stone_pickaxe -> collect_iron -> iron tools -> diamond
+while also maintaining survival (food/drink/energy/health) so the agent doesn’t die before reaching mid/late milestones.
+
+============================================================
+OUTPUT CONSTRAINTS (DO NOT VIOLATE)
+============================================================
+- Return your response as JSON with a single key "code" whose value is ONLY the complete function definition string.
+- Do NOT import anything.
+- Use only Python builtins.
+- Function name must be exactly compute_reward.
+- Accept exactly (current_step, prev_step, terminated, truncated).
+- Must handle prev_step is None (return 0.0).
+- Return a single float.
+
+============================================================
+REWARD DESIGN (must implement all components)
+============================================================
+Implement reward as a weighted sum using deltas between current_step and prev_step.
+Keep reward magnitudes bounded and clip final reward to [-30, +30].
+
+-----------------------------
+(1) BIG BONUS: NEW ACHIEVEMENT UNLOCKS (main driver)
+-----------------------------
+When any achievement changes from 0 -> >=1 on this step, add a large one-time bonus.
+Do NOT reward wake_up (weight 0).
+
+Use this (hardcode a dict) as the DEFAULT weights; you may slightly tune but keep relative ordering:
+- Early gather/sustain:
+  collect_wood: 3
+  collect_sapling: 3
+  collect_drink: 4   (raise a bit vs before; survival needs it but still one-time)
+  eat_plant: 6       (raise; currently 0% and critical for survival)
+  eat_cow: 6
+- Build/craft early:
+  place_table: 10
+  make_wood_pickaxe: 12
+  make_wood_sword: 8
+- Mid gather/build (make these clearly more valuable so the agent transitions):
+  collect_stone: 10
+  collect_coal: 12
+  place_furnace: 18
+  make_stone_pickaxe: 22
+  make_stone_sword: 14
+  place_stone: 6
+  place_plant: 4      (slightly lower so it doesn’t distract)
+- Late:
+  collect_iron: 26
+  make_iron_pickaxe: 28
+  make_iron_sword: 22
+- Endgame:
+  collect_diamond: 30
+- Combat:
+  defeat_zombie: 14
+  defeat_skeleton: 18
+
+Important: Achievement bonuses must dominate all dense shaping.
+
+-----------------------------
+(2) DENSE SHAPING: CLIPPED INVENTORY PROGRESS (small, cannot be farmed)
+-----------------------------
+Reward ONLY positive progress using clipped deltas:
+  delta = min(cur, target) - min(prev, target)
+Only reward if delta > 0.
+
+Use base targets and per-unit weights (hardcode both dicts):
+Targets (base):
+  wood: 8, sapling: 3, stone: 8, coal: 6, iron: 6, diamond: 2
+Tools (first unit only, target=1):
+  wood_pickaxe, stone_pickaxe, iron_pickaxe, wood_sword, stone_sword, iron_sword
+
+Base per-unit weights (keep small):
+  wood: 0.25, sapling: 0.15, stone: 0.35, coal: 0.45, iron: 0.6, diamond: 1.0
+  each tool (first unit): 0.8 (pickaxes), 0.5 (swords)
+
+Do NOT give reward for increasing materials above targets.
+
+-----------------------------
+(3) CRITICAL: STAGED / CURRICULUM BIAS (bridge the long dependency chain)
+-----------------------------
+The agent is currently getting stuck before furnace/stone_pickaxe/iron. Fix by adding stage-specific multipliers AND prerequisite-threshold bonuses.
+
+3A) Stage selection based on missing achievements (in this order):
+Stage A: if place_table not unlocked
+Stage B: elif make_wood_pickaxe not unlocked
+Stage C: elif (collect_stone not unlocked) or (collect_coal not unlocked)
+Stage D: elif place_furnace not unlocked
+Stage E: elif make_stone_pickaxe not unlocked
+Stage F: elif collect_iron not unlocked
+Stage G: else (iron tools -> diamond + combat)
+
+3B) For each stage, increase weights for the “next” required inventory deltas by multiplying the base per-unit weights.
+Use simple multipliers like 1.0 normally, 1.5-3.0 for priority items.
+Guidance:
+- Stage A: strongly prioritize wood gains (multiplier ~2.5) and table unlock bonus already big.
+- Stage B: prioritize wood gains (~2.0) AND first wood_pickaxe tool delta (~2.0).
+- Stage C: prioritize stone and coal gains (~2.5) (only meaningful if wood_pickaxe exists).
+- Stage D (most important missing in current results): prioritize stone gains strongly (~3.0) until the agent can place furnace.
+- Stage E: prioritize iron prerequisites (~2.5) and stone_pickaxe tool delta (~2.0).
+- Stage F: prioritize iron gains (~3.0).
+- Stage G: prioritize diamond, swords, combat achievements.
+
+3C) Add one-time “prerequisite threshold” bonuses when crossing key counts (using prev<k and cur>=k), because the agent currently fails to accumulate enough stone to place a furnace.
+Implement small one-time bonuses like:
+- If table not yet placed: bonus when wood reaches >=2 (e.g., +1.0) and >=4 (+0.5)
+- If furnace not yet placed: bonus when stone reaches >=4 (+2.0) and >=6 (+1.0)
+- If stone_pickaxe not yet made: bonus when iron reaches >=1 (+2.0) and >=2 (+1.0)
+Also optionally: bonus when coal reaches >=1 (+1.0) after wood_pickaxe exists.
+These are NOT achievements; they are shaping stepping stones and must remain much smaller than achievement unlocks.
+
+-----------------------------
+(4) SURVIVAL SHAPING (prevent dying while progressing)
+-----------------------------
+- If terminated (death): add strong penalty, e.g. -25.
+- Add tiny alive bonus per step, e.g. +0.01.
+- Penalize critically low vitals to force eating/drinking/sleeping:
+  if food <= 1: penalty (e.g., -0.8)
+  if drink <= 1: penalty (e.g., -0.8)
+  if energy <= 1: penalty (e.g., -0.4)
+  if health <= 1: penalty (e.g., -1.2)
+- Penalize health decreases this step: e.g. -0.3 * max(0, prev_health - cur_health)
+- Reward increases in vitals (small):
+  +0.15 * max(0, cur_food - prev_food)
+  +0.15 * max(0, cur_drink - prev_drink)
+  +0.08 * max(0, cur_energy - prev_energy)
+  +0.2  * max(0, cur_health - prev_health)
+These must stay smaller than achievement bonuses.
+
+-----------------------------
+(5) ANTI-WASTE / ACTIVITY (reduce useless actions, but don’t kill exploration)
+-----------------------------
+- Penalize noop slightly (action==0): e.g. -0.02
+- Detect failed craft/place attempts:
+  if action in {7..16} and achievements unchanged AND inventory unchanged vs prev_step -> small penalty (e.g., -0.05 to -0.1)
+  Keep this penalty SMALL (the agent must still try crafting/placing).
+- If NOTHING changed (inventory and achievements unchanged) and pos unchanged: small extra penalty (stuck), e.g. -0.01
+- If nothing changed except pos changed: tiny exploration reward, e.g. +0.001
+
+-----------------------------
+(6) EPISODE-END BREADTH BONUS (encourage geometric-mean breadth)
+-----------------------------
+At the final step (truncated or terminated), add a small bonus based on the COUNT of unlocked achievements (excluding wake_up).
+- If truncated (survived to time limit): +0.3 * count_unlocked (cap at +6)
+- If terminated (died): no breadth bonus (death penalty already applied)
+This helps breadth without encouraging farming during the episode.
+
+-----------------------------
+(7) SAFETY / STABILITY
+-----------------------------
+- prev_step is None: return 0.0
+- Clip final reward to [-30, 30]
+- Use only builtins
+
+============================================================
+FINAL OUTPUT
+============================================================
+Return JSON: {"code": "<ONLY the function definition>"}
+No extra text.
+

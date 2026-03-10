@@ -63,3 +63,68 @@
     These changes specifically target the missing achievements (all crafting/placement/mining/combat)
     without removing the existing incentive to drink; instead, drink becomes one early-step
     component that saturates and then stops dominating behavior.'
+- iteration: 2
+  prompt_path: /Users/markusmeresma/kingsbsc/year3/6CCS3PRJ/fyp-actual/llm-reward-comparison/optimised_prompts/crafter_explicit/iter2_20260310_115301/prompt.txt
+  experiment_path: experiments/crafter_explicit_crafter_openai-gpt-5.3-codex_20260309_223958_seed42_20260309_225926
+  pre_optimisation_crafter_score: 2.932526
+  pre_optimisation_metrics:
+    crafter_score: 2.932526
+    mean_achievements_per_episode: 3.7
+    success_rate_collect_coal: 0.0
+    success_rate_collect_diamond: 0.0
+    success_rate_collect_drink: 15.0
+    success_rate_collect_iron: 0.0
+    success_rate_collect_sapling: 95.0
+    success_rate_collect_stone: 10.0
+    success_rate_collect_wood: 80.0
+    success_rate_defeat_skeleton: 0.0
+    success_rate_defeat_zombie: 5.0
+    success_rate_eat_cow: 0.0
+    success_rate_eat_plant: 0.0
+    success_rate_make_iron_pickaxe: 0.0
+    success_rate_make_iron_sword: 0.0
+    success_rate_make_stone_pickaxe: 0.0
+    success_rate_make_stone_sword: 0.0
+    success_rate_make_wood_pickaxe: 35.0
+    success_rate_make_wood_sword: 0.0
+    success_rate_place_furnace: 0.0
+    success_rate_place_plant: 60.0
+    success_rate_place_stone: 10.0
+    success_rate_place_table: 60.0
+    success_rate_wake_up: 0.0
+  reasoning_summary: "Diagnosis from the latest metrics: the agent reliably reaches\
+    \ early gathering (collect_sapling 95%, collect_wood 80%) and often performs early\
+    \ placements (place_table 60%, place_plant 60%) and sometimes crafts a wood pickaxe\
+    \ (35%). However, progress collapses immediately after that: place_furnace, collect_coal,\
+    \ make_stone_pickaxe, collect_iron, and all iron/diamond achievements are 0%.\
+    \ This indicates the current reward/curriculum is not successfully bridging the\
+    \ long prerequisite gap from \u201Cwood pickaxe exists\u201D to \u201Caccumulate\
+    \ enough stone/coal\u201D to \u201Cplace furnace\u201D to \u201Cstone pickaxe\u201D\
+    \ to \u201Ciron\u201D. In Crafter, these mid-tech steps require multi-step inventory\
+    \ accumulation (not just a single unlock), so a reward that only pays on single\
+    \ achievement unlocks plus low-magnitude generic inventory deltas can still fail\
+    \ if the agent never gets sufficiently strong shaping to (a) mine enough stone\
+    \ and (b) stop getting distracted by earlier easy objectives.\n\nWhat to change\
+    \ in the prompt:\n1) Increase the relative value of the missing mid-tech unlocks\
+    \ (collect_coal, place_furnace, make_stone_pickaxe, collect_iron) so they dominate\
+    \ early-game behaviors once available, without making early achievements farmable\
+    \ (they\u2019re one-time anyway). Also slightly reduce place_plant\u2019s priority\
+    \ since it\u2019s already high and can distract.\n2) Strengthen the staged curriculum\
+    \ logic specifically around the \u201Cstone-for-furnace\u201D bottleneck by (i)\
+    \ higher stage multipliers for stone/coal deltas in the correct stages and (ii)\
+    \ explicit one-time prerequisite-threshold bonuses when crossing key inventory\
+    \ counts (e.g., stone>=4 for furnace). This directly targets the observed failure\
+    \ mode: the agent sometimes gets a pickaxe/stone but doesn\u2019t reliably accumulate\
+    \ enough to place a furnace.\n3) Add an episode-end breadth bonus for surviving-to-truncation\
+    \ proportional to number of achievements unlocked (excluding wake_up), capped.\
+    \ This aligns with the geometric mean score by encouraging collecting \u201Cone\
+    \ more different achievement\u201D rather than looping on early steps.\n4) Restore/strengthen\
+    \ survival shaping and slightly raise collect_drink\u2019s achievement bonus (still\
+    \ one-time) because drink success fell sharply (15%) and dying early prevents\
+    \ mid/late progress; also boost eat_* achievement weights since they are 0% and\
+    \ critical for survival.\n5) Keep anti-waste penalties but ensure failed craft/place\
+    \ penalties remain small so the agent continues to attempt crafting/placing rather\
+    \ than avoiding them.\n\nThese prompt changes preserve what already works (early\
+    \ gathering/table/pickaxe) while creating a much stronger and more explicit curriculum\
+    \ push into furnace/stone pickaxe/iron, which is necessary for broad achievement\
+    \ coverage and improved Crafter Score."
