@@ -124,7 +124,6 @@ def load_train_config(argv=None) -> dict[str, Any]:
         "total_timesteps": env_cfg["total_timesteps"],
         "eval_freq": env_cfg["eval_freq"],
         "n_eval_episodes": env_cfg["n_eval_episodes"],
-        "prompt_version": env_cfg["prompt_version"],
         "llm_temperature": defaults["llm_temperature"],
         "seed": defaults["seed"],
         "segment_length": env_cfg["segment_length"],
@@ -134,6 +133,8 @@ def load_train_config(argv=None) -> dict[str, Any]:
         if args.reward_model != "implicit":
             raise ValueError("--prompt-path is only supported with --reward-model implicit")
         resolved["prompt_path"] = args.prompt_path
+    else:
+        resolved["prompt_version"] = env_cfg["prompt_version"]
     
     if args.total_timesteps is not None:
         resolved["total_timesteps"] = args.total_timesteps
