@@ -1,0 +1,90 @@
+env: crafter
+llm_model: openai/gpt-5.3-codex
+llm_provider: openrouter
+prompt_source: optimised_prompts/crafter_explicit/iter2_20260310_115301/prompt.txt
+temperature: 0.0
+timestamp: '20260310_120007'
+attempts: 1
+errors: null
+raw_responses:
+- '{"code":"def compute_reward(current_step, prev_step, terminated, truncated):\n    if
+  prev_step is None:\n        return 0.0\n\n    reward = 0.0\n\n    cur_inv = current_step.get(''inventory'',
+  {})\n    prev_inv = prev_step.get(''inventory'', {})\n    cur_ach = current_step.get(''achievements'',
+  {})\n    prev_ach = prev_step.get(''achievements'', {})\n\n    # (1) Big bonuses
+  for first-time achievement unlocks\n    ach_weights = {\n        ''collect_wood'':
+  3.0,\n        ''collect_sapling'': 3.0,\n        ''collect_drink'': 4.0,\n        ''eat_plant'':
+  6.0,\n        ''eat_cow'': 6.0,\n        ''place_table'': 10.0,\n        ''make_wood_pickaxe'':
+  12.0,\n        ''make_wood_sword'': 8.0,\n        ''collect_stone'': 10.0,\n        ''collect_coal'':
+  12.0,\n        ''place_furnace'': 18.0,\n        ''make_stone_pickaxe'': 22.0,\n        ''make_stone_sword'':
+  14.0,\n        ''place_stone'': 6.0,\n        ''place_plant'': 4.0,\n        ''collect_iron'':
+  26.0,\n        ''make_iron_pickaxe'': 28.0,\n        ''make_iron_sword'': 22.0,\n        ''collect_diamond'':
+  30.0,\n        ''defeat_zombie'': 14.0,\n        ''defeat_skeleton'': 18.0,\n        ''wake_up'':
+  0.0,\n    }\n    for k, w in ach_weights.items():\n        if prev_ach.get(k, 0)
+  <= 0 and cur_ach.get(k, 0) >= 1:\n            reward += w\n\n    # (3A) Stage selection\n    if
+  cur_ach.get(''place_table'', 0) < 1:\n        stage = ''A''\n    elif cur_ach.get(''make_wood_pickaxe'',
+  0) < 1:\n        stage = ''B''\n    elif cur_ach.get(''collect_stone'', 0) < 1 or
+  cur_ach.get(''collect_coal'', 0) < 1:\n        stage = ''C''\n    elif cur_ach.get(''place_furnace'',
+  0) < 1:\n        stage = ''D''\n    elif cur_ach.get(''make_stone_pickaxe'', 0)
+  < 1:\n        stage = ''E''\n    elif cur_ach.get(''collect_iron'', 0) < 1:\n        stage
+  = ''F''\n    else:\n        stage = ''G''\n\n    # (2) Dense shaping: clipped inventory
+  progress\n    targets = {\n        ''wood'': 8, ''sapling'': 3, ''stone'': 8, ''coal'':
+  6, ''iron'': 6, ''diamond'': 2,\n        ''wood_pickaxe'': 1, ''stone_pickaxe'':
+  1, ''iron_pickaxe'': 1,\n        ''wood_sword'': 1, ''stone_sword'': 1, ''iron_sword'':
+  1,\n    }\n    base_w = {\n        ''wood'': 0.25, ''sapling'': 0.15, ''stone'':
+  0.35, ''coal'': 0.45, ''iron'': 0.6, ''diamond'': 1.0,\n        ''wood_pickaxe'':
+  0.8, ''stone_pickaxe'': 0.8, ''iron_pickaxe'': 0.8,\n        ''wood_sword'': 0.5,
+  ''stone_sword'': 0.5, ''iron_sword'': 0.5,\n    }\n\n    multipliers = {}\n    for
+  k in targets:\n        multipliers[k] = 1.0\n\n    # (3B) Stage multipliers\n    if
+  stage == ''A'':\n        multipliers[''wood''] = 2.5\n        multipliers[''sapling'']
+  = 1.2\n    elif stage == ''B'':\n        multipliers[''wood''] = 2.0\n        multipliers[''wood_pickaxe'']
+  = 2.0\n    elif stage == ''C'':\n        multipliers[''stone''] = 2.5\n        multipliers[''coal'']
+  = 2.5\n    elif stage == ''D'':\n        multipliers[''stone''] = 3.0\n        multipliers[''coal'']
+  = 1.5\n    elif stage == ''E'':\n        multipliers[''iron''] = 2.5\n        multipliers[''stone_pickaxe'']
+  = 2.0\n        multipliers[''coal''] = 1.5\n        multipliers[''stone''] = 1.5\n    elif
+  stage == ''F'':\n        multipliers[''iron''] = 3.0\n        multipliers[''iron_pickaxe'']
+  = 1.5\n    else:  # G\n        multipliers[''diamond''] = 2.5\n        multipliers[''iron_pickaxe'']
+  = 1.5\n        multipliers[''iron_sword''] = 1.8\n        multipliers[''stone_sword'']
+  = 1.2\n        multipliers[''iron''] = 1.5\n\n    for k, t in targets.items():\n        p
+  = prev_inv.get(k, 0)\n        c = cur_inv.get(k, 0)\n        d = min(c, t) - min(p,
+  t)\n        if d > 0:\n            reward += d * base_w[k] * multipliers.get(k,
+  1.0)\n\n    # (3C) Prerequisite threshold bonuses\n    prev_wood = prev_inv.get(''wood'',
+  0)\n    cur_wood = cur_inv.get(''wood'', 0)\n    if prev_ach.get(''place_table'',
+  0) < 1:\n        if prev_wood < 2 <= cur_wood:\n            reward += 1.0\n        if
+  prev_wood < 4 <= cur_wood:\n            reward += 0.5\n\n    prev_stone = prev_inv.get(''stone'',
+  0)\n    cur_stone = cur_inv.get(''stone'', 0)\n    if prev_ach.get(''place_furnace'',
+  0) < 1:\n        if prev_stone < 4 <= cur_stone:\n            reward += 2.0\n        if
+  prev_stone < 6 <= cur_stone:\n            reward += 1.0\n\n    prev_iron = prev_inv.get(''iron'',
+  0)\n    cur_iron = cur_inv.get(''iron'', 0)\n    if prev_ach.get(''make_stone_pickaxe'',
+  0) < 1:\n        if prev_iron < 1 <= cur_iron:\n            reward += 2.0\n        if
+  prev_iron < 2 <= cur_iron:\n            reward += 1.0\n\n    if (prev_ach.get(''make_wood_pickaxe'',
+  0) >= 1 or cur_ach.get(''make_wood_pickaxe'', 0) >= 1):\n        if prev_inv.get(''coal'',
+  0) < 1 <= cur_inv.get(''coal'', 0):\n            reward += 1.0\n\n    # (4) Survival
+  shaping\n    reward += 0.01  # alive bonus\n\n    cur_food = cur_inv.get(''food'',
+  0)\n    cur_drink = cur_inv.get(''drink'', 0)\n    cur_energy = cur_inv.get(''energy'',
+  0)\n    cur_health = cur_inv.get(''health'', 0)\n\n    prev_food = prev_inv.get(''food'',
+  0)\n    prev_drink = prev_inv.get(''drink'', 0)\n    prev_energy = prev_inv.get(''energy'',
+  0)\n    prev_health = prev_inv.get(''health'', 0)\n\n    if cur_food <= 1:\n        reward
+  -= 0.8\n    if cur_drink <= 1:\n        reward -= 0.8\n    if cur_energy <= 1:\n        reward
+  -= 0.4\n    if cur_health <= 1:\n        reward -= 1.2\n\n    health_drop = prev_health
+  - cur_health\n    if health_drop > 0:\n        reward -= 0.3 * health_drop\n\n    food_gain
+  = cur_food - prev_food\n    drink_gain = cur_drink - prev_drink\n    energy_gain
+  = cur_energy - prev_energy\n    health_gain = cur_health - prev_health\n\n    if
+  food_gain > 0:\n        reward += 0.15 * food_gain\n    if drink_gain > 0:\n        reward
+  += 0.15 * drink_gain\n    if energy_gain > 0:\n        reward += 0.08 * energy_gain\n    if
+  health_gain > 0:\n        reward += 0.2 * health_gain\n\n    if terminated:\n        reward
+  -= 25.0\n\n    # (5) Anti-waste / activity\n    action = current_step.get(''action'',
+  0)\n    if action == 0:\n        reward -= 0.02\n\n    inv_unchanged = (cur_inv
+  == prev_inv)\n    ach_unchanged = (cur_ach == prev_ach)\n\n    if 7 <= action <=
+  16 and inv_unchanged and ach_unchanged:\n        reward -= 0.07\n\n    pos_same
+  = current_step.get(''pos'', None) == prev_step.get(''pos'', None)\n    if inv_unchanged
+  and ach_unchanged:\n        if pos_same:\n            reward -= 0.01\n        else:\n            reward
+  += 0.001\n\n    # (6) Episode-end breadth bonus\n    if truncated and not terminated:\n        count_unlocked
+  = 0\n        for k, v in cur_ach.items():\n            if k != ''wake_up'' and v
+  >= 1:\n                count_unlocked += 1\n        breadth_bonus = 0.3 * count_unlocked\n        if
+  breadth_bonus > 6.0:\n            breadth_bonus = 6.0\n        reward += breadth_bonus\n\n    #
+  (7) Clip final reward\n    if reward > 30.0:\n        reward = 30.0\n    elif reward
+  < -30.0:\n        reward = -30.0\n\n    return float(reward)"}'
+usage:
+  prompt_tokens: 2427
+  completion_tokens: 3380
+  total_tokens: 5807

@@ -1,0 +1,33 @@
+env: crafter
+llm_model: devstral-2512
+llm_provider: mistral
+prompt_version: explicit_v1
+temperature: 0.0
+timestamp: '20260306_162603'
+attempts: 1
+errors: null
+raw_responses:
+- '{"code": "def compute_reward(current_step, prev_step, terminated, truncated):\n    #
+  Initialize reward\n    reward = 0.0\n    \n    # Handle first step\n    if prev_step
+  is None:\n        return reward\n    \n    # Check for death penalty\n    if terminated:\n        return
+  -10.0\n    \n    # Check for time limit penalty\n    if truncated:\n        return
+  -5.0\n    \n    # Check for health change\n    health_change = current_step[''inventory''][''health'']
+  - prev_step[''inventory''][''health'']\n    if health_change < 0:\n        reward
+  += health_change * 2.0\n    \n    # Check for food and drink consumption\n    food_change
+  = current_step[''inventory''][''food''] - prev_step[''inventory''][''food'']\n    drink_change
+  = current_step[''inventory''][''drink''] - prev_step[''inventory''][''drink'']\n    if
+  food_change > 0:\n        reward += 0.1\n    if drink_change > 0:\n        reward
+  += 0.1\n    \n    # Check for resource collection\n    for resource in [''wood'',
+  ''stone'', ''coal'', ''iron'', ''diamond'', ''sapling'']:\n        if current_step[''inventory''][resource]
+  > prev_step[''inventory''][resource]:\n            reward += 0.2\n    \n    # Check
+  for tool crafting\n    for tool in [''wood_pickaxe'', ''stone_pickaxe'', ''iron_pickaxe'',
+  ''wood_sword'', ''stone_sword'', ''iron_sword'']:\n        if current_step[''inventory''][tool]
+  > prev_step[''inventory''][tool]:\n            reward += 0.5\n    \n    # Check
+  for achievements unlocked\n    for achievement in current_step[''achievements'']:\n        if
+  current_step[''achievements''][achievement] > prev_step[''achievements''][achievement]:\n            reward
+  += 1.0\n    \n    # Small penalty for noop to encourage activity\n    if current_step[''action'']
+  == 0:\n        reward -= 0.01\n    \n    return reward"}'
+usage:
+  prompt_tokens: 1338
+  completion_tokens: 482
+  total_tokens: 1820
