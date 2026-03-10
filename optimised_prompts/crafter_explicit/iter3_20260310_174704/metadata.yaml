@@ -1,0 +1,221 @@
+optimiser_model: openai/gpt-5.2
+iteration: 3
+experiment_path: experiments/crafter_explicit_crafter_openai-gpt-5.3-codex_20260310_120007_seed42_20260310_124632
+input_prompt_path: optimised_prompts/crafter_explicit/iter2_20260310_115301/prompt.txt
+pre_optimisation_crafter_score: 2.423343
+pre_optimisation_metrics:
+  crafter_score: 2.423343
+  mean_achievements_per_episode: 3.2
+  success_rate_collect_coal: 0.0
+  success_rate_collect_diamond: 0.0
+  success_rate_collect_drink: 15.0
+  success_rate_collect_iron: 0.0
+  success_rate_collect_sapling: 80.0
+  success_rate_collect_stone: 0.0
+  success_rate_collect_wood: 80.0
+  success_rate_defeat_skeleton: 0.0
+  success_rate_defeat_zombie: 5.0
+  success_rate_eat_cow: 10.0
+  success_rate_eat_plant: 0.0
+  success_rate_make_iron_pickaxe: 0.0
+  success_rate_make_iron_sword: 0.0
+  success_rate_make_stone_pickaxe: 0.0
+  success_rate_make_stone_sword: 0.0
+  success_rate_make_wood_pickaxe: 0.0
+  success_rate_make_wood_sword: 35.0
+  success_rate_place_furnace: 0.0
+  success_rate_place_plant: 55.0
+  success_rate_place_stone: 0.0
+  success_rate_place_table: 40.0
+  success_rate_wake_up: 0.0
+reasoning: "Diagnosis from the metrics:\n- The agent reliably hits early gather/plant,\
+  \ and sometimes place_table, but it is not consistently crafting make_wood_pickaxe;\
+  \ in the latest results wood_sword becomes frequent while wood_pickaxe collapses\
+  \ to 0%. This indicates the reward is allowing an early distraction (sword) and/or\
+  \ the anti-waste penalties are accidentally teaching the agent to avoid repeated\
+  \ crafting attempts needed to learn table adjacency / prerequisites.\n- The main\
+  \ missing cluster remains the mid-tech bottleneck (stone/coal accumulation -> place_furnace\
+  \ -> make_stone_pickaxe -> collect_iron). Sparse one-time achievement rewards are\
+  \ not sufficient unless the agent is strongly guided to accumulate enough stone/coal\
+  \ quantities.\n- Food achievements remain near-zero, which likely shortens episodes\
+  \ or forces overly conservative play; survival shaping must support reaching mid-game.\n\
+  \nPrompt changes to address these failures without breaking what works:\n1) Make\
+  \ early tech steps more reliable by increasing place_table and especially make_wood_pickaxe\
+  \ unlock weights, while reducing make_wood_sword\u2019s early value (still rewarded\
+  \ once for breadth, but less tempting as a shortcut).\n2) Strengthen the furnace\
+  \ bridge with (a) higher stone/coal dense-shaping targets (so reward continues while\
+  \ accumulating enough), (b) stronger stage multipliers in Stage D (stone-for-furnace),\
+  \ and (c) additional one-time threshold bonuses at stone>=4/6/8 and coal>=1/2.\n\
+  3) Prevent the anti-waste penalty from suppressing exploration by applying it only\
+  \ when the action plausibly could have succeeded (prerequisites satisfied). This\
+  \ reduces the risk that the agent learns \u201Cnever try crafting/placing\u201D\
+  .\n4) Add explicit stage guidance to de-emphasize swords during Stages A\u2013F\
+  \ (via tool-delta multipliers) and re-emphasize them in Stage G so the sword achievements\
+  \ can still be collected later for breadth.\n5) Keep achievement unlocks as the\
+  \ dominant term and retain the episode-end breadth bonus to improve the geometric-mean\
+  \ objective."
+raw_response: "{\"prompt\":\"You are writing a reward function for a reinforcement\
+  \ learning agent in Crafter.\\n\\nThe reward is the ONLY learning signal. It must\
+  \ strongly improve the Crafter Score (geometric mean over 22 achievement success\
+  \ rates), which requires BREADTH: unlock many different achievements in a single\
+  \ episode, not farm a single easy behavior.\\n\\nGenerate Python code for a function:\\\
+  n\\ndef compute_reward(current_step, prev_step, terminated, truncated):\\n    ...\\\
+  n    return float\\n\\nThe function is executed every step.\\n\\n============================================================\\\
+  nENVIRONMENT SUMMARY (what you can use)\\n============================================================\\\
+  nYou may ONLY use these fields from the step dicts:\\n- action: int (0-16)\\n- pos:\
+  \ tuple(int,int)\\n- inventory: dict[str,int]\\n- achievements: dict[str,int]\\\
+  n\\nInventory contains:\\nVitals: health, food, drink, energy\\nMaterials: wood,\
+  \ stone, coal, iron, diamond, sapling\\nTools: wood_pickaxe, stone_pickaxe, iron_pickaxe,\
+  \ wood_sword, stone_sword, iron_sword\\n\\nAchievements (0=locked, >=1 unlocked,\
+  \ persist through episode):\\ncollect_coal, collect_diamond, collect_drink, collect_iron,\
+  \ collect_sapling, collect_stone, collect_wood,\\ndefeat_skeleton, defeat_zombie,\
+  \ eat_cow, eat_plant,\\nmake_iron_pickaxe, make_iron_sword, make_stone_pickaxe,\
+  \ make_stone_sword, make_wood_pickaxe, make_wood_sword,\\nplace_furnace, place_plant,\
+  \ place_stone, place_table, wake_up\\n\\nActions (0-16):\\n0 noop, 1 left, 2 right,\
+  \ 3 up, 4 down, 5 do, 6 sleep,\\n7 place_stone, 8 place_table, 9 place_furnace,\
+  \ 10 place_plant,\\n11 make_wood_pickaxe, 12 make_stone_pickaxe, 13 make_iron_pickaxe,\\\
+  n14 make_wood_sword, 15 make_stone_sword, 16 make_iron_sword\\n\\nEpisodes end if\
+  \ terminated=True (death) or truncated=True (time limit).\\n\\n============================================================\\\
+  nWHAT IS CURRENTLY GOING WRONG (must fix)\\n============================================================\\\
+  nObserved behavior: agent often gets early gather/plant, sometimes table, but is\
+  \ NOT reliably crafting wood_pickaxe, and almost never reaches the critical mid-tech\
+  \ bottleneck:\\nwood_pickaxe -> collect_stone/coal (enough quantities) -> place_furnace\
+  \ -> make_stone_pickaxe -> collect_iron.\\nAlso food achievements are near-zero,\
+  \ so the agent dies or plays too cautiously.\\nAdditionally, the agent sometimes\
+  \ prefers crafting a wood_sword over making a wood_pickaxe (bad early distraction).\\\
+  n\\nSo the reward must:\\n1) Make place_table + make_wood_pickaxe extremely reliable\
+  \ (so mining progression starts).\\n2) Create a STRONG curriculum bridge to accumulate\
+  \ enough stone/coal to place_furnace.\\n3) Strongly promote collect_iron and iron\
+  \ tools after furnace/stone_pickaxe.\\n4) Maintain survival (food/drink/energy/health)\
+  \ so mid/late milestones are reachable.\\n5) Avoid punishing \u201Cexploratory crafting\
+  \ attempts\u201D too early (don\u2019t teach the agent to never try crafting).\\\
+  n\\n============================================================\\nOUTPUT CONSTRAINTS\
+  \ (DO NOT VIOLATE)\\n============================================================\\\
+  n- Return your response as JSON with a single key \\\"code\\\" whose value is ONLY\
+  \ the complete function definition string.\\n- Do NOT import anything.\\n- Use only\
+  \ Python builtins.\\n- Function name must be exactly compute_reward.\\n- Accept\
+  \ exactly (current_step, prev_step, terminated, truncated).\\n- Must handle prev_step\
+  \ is None (return 0.0).\\n- Return a single float.\\n\\n============================================================\\\
+  nREWARD DESIGN (must implement all components)\\n============================================================\\\
+  nImplement reward as a weighted sum using deltas between current_step and prev_step.\\\
+  nKeep reward magnitudes bounded and clip final reward to [-30, +30].\\nUse dict.get(key,\
+  \ 0) everywhere to avoid KeyError.\\n\\n-----------------------------\\n(1) BIG\
+  \ BONUS: NEW ACHIEVEMENT UNLOCKS (main driver)\\n-----------------------------\\\
+  nWhen any achievement changes from 0 -> >=1 on this step, add a large one-time bonus.\\\
+  nDo NOT reward wake_up (weight 0).\\n\\nUse this as DEFAULT weights (you may slightly\
+  \ tune, but keep the overall ordering: early < mid < late/endgame; mid-tech must\
+  \ be clearly valuable):\\n- Early gather/sustain:\\n  collect_wood: 3\\n  collect_sapling:\
+  \ 3\\n  collect_drink: 5\\n  eat_plant: 7\\n  eat_cow: 7\\n- Build/craft early (make\
+  \ these very reliable):\\n  place_table: 14\\n  make_wood_pickaxe: 18\\n  make_wood_sword:\
+  \ 5   (lower early; still rewarded once, but don\u2019t let it distract)\\n- Mid\
+  \ gather/build (missing in current results; emphasize strongly):\\n  collect_stone:\
+  \ 12\\n  collect_coal: 14\\n  place_furnace: 22\\n  make_stone_pickaxe: 26\\n  make_stone_sword:\
+  \ 14\\n  place_stone: 6\\n  place_plant: 3\\n- Late:\\n  collect_iron: 30\\n  make_iron_pickaxe:\
+  \ 32\\n  make_iron_sword: 24\\n- Endgame:\\n  collect_diamond: 30\\n- Combat:\\\
+  n  defeat_zombie: 14\\n  defeat_skeleton: 18\\n\\nIMPORTANT: Achievement bonuses\
+  \ must dominate all dense shaping.\\n\\nOptional but recommended: add a small stage-dependent\
+  \ multiplier to ONLY the \u201Cnext milestone\u201D achievement unlock (e.g., *1.2)\
+  \ so the curriculum is sharper, but do not inflate everything.\\n\\n-----------------------------\\\
+  n(2) DENSE SHAPING: CLIPPED INVENTORY PROGRESS (small, cannot be farmed)\\n-----------------------------\\\
+  nReward ONLY positive progress using clipped deltas:\\n  delta = min(cur, target)\
+  \ - min(prev, target)\\nOnly reward if delta > 0.\\n\\nUse targets and per-unit\
+  \ weights (hardcode both dicts). You MAY modestly increase stone/coal targets to\
+  \ better support furnace placement.\\nSuggested targets:\\n  wood: 8, sapling: 3,\
+  \ stone: 12, coal: 8, iron: 8, diamond: 2\\nTools (first unit only, target=1):\\\
+  n  wood_pickaxe, stone_pickaxe, iron_pickaxe, wood_sword, stone_sword, iron_sword\\\
+  n\\nBase per-unit weights (keep small):\\n  wood: 0.25, sapling: 0.15, stone: 0.40,\
+  \ coal: 0.55, iron: 0.70, diamond: 1.0\\n  each tool (first unit):\\n    pickaxes:\
+  \ 0.9\\n    swords: 0.4  (lower; increase via Stage G multiplier later)\\n\\nDo\
+  \ NOT give reward for increasing materials above targets.\\n\\n-----------------------------\\\
+  n(3) CRITICAL: STAGED / CURRICULUM BIAS (bridge the long dependency chain)\\n-----------------------------\\\
+  nThe agent is getting stuck before furnace/stone_pickaxe/iron and sometimes distracted\
+  \ by swords. Fix with stage multipliers + prerequisite threshold bonuses.\\n\\n3A)\
+  \ Stage selection based on missing achievements (in this order):\\nStage A: if place_table\
+  \ not unlocked\\nStage B: elif make_wood_pickaxe not unlocked\\nStage C: elif (collect_stone\
+  \ not unlocked) or (collect_coal not unlocked)\\nStage D: elif place_furnace not\
+  \ unlocked\\nStage E: elif make_stone_pickaxe not unlocked\\nStage F: elif collect_iron\
+  \ not unlocked\\nStage G: else (iron tools -> diamond + combat + remaining breadth)\\\
+  n\\n3B) Stage-specific multipliers applied to the dense shaping per-unit weights\
+  \ (and optionally tool deltas):\\nUse multipliers ~1.0 normally and 1.5-4.0 for\
+  \ priority items.\\n\\nGuidance (implement as a dict of multipliers per stage):\\\
+  n- Stage A: wood *2.8, sapling *1.2; (others ~1.0)\\n- Stage B: wood *2.2, wood_pickaxe_delta\
+  \ *2.5; also DE-EMPHASIZE swords early: sword_delta multiplier *0.3 in Stages A-F\\\
+  n- Stage C: stone *3.0, coal *3.0 (only truly useful if wood_pickaxe exists, but\
+  \ don\u2019t hard-require it)\\n- Stage D (most important bottleneck): stone *4.0\
+  \ and coal *2.0 (push accumulation to actually place furnace)\\n- Stage E: stone_pickaxe_delta\
+  \ *2.5 and iron *2.0\\n- Stage F: iron *4.0\\n- Stage G: diamond *3.0, sword_delta\
+  \ *2.0 (now swords matter), and keep iron/coal/stone ~1.2\\n\\n3C) One-time \u201C\
+  prerequisite threshold\u201D bonuses when crossing key counts (prev<k and cur>=k).\
+  \ These are small stepping stones (must stay far smaller than achievement unlocks):\\\
+  n- If table not yet placed:\\n  wood>=2: +1.0, wood>=4: +0.5\\n- If wood_pickaxe\
+  \ not yet made:\\n  wood>=6: +0.8 (helps stop getting stuck before crafting)\\n-\
+  \ If furnace not yet placed:\\n  stone>=4: +2.0, stone>=6: +1.0, stone>=8: +1.0\\\
+  n  and if wood_pickaxe exists: coal>=1: +1.0, coal>=2: +0.5\\n  (optional combo\
+  \ bonus) if furnace not placed and stone>=6 and coal>=1 crossed this step: +0.8\\\
+  n- If stone_pickaxe not yet made:\\n  iron>=1: +2.0, iron>=2: +1.0\\n\\nKeep these\
+  \ bonuses modest and strictly one-time per threshold crossing.\\n\\n-----------------------------\\\
+  n(4) SURVIVAL SHAPING (prevent dying while progressing)\\n-----------------------------\\\
+  n- If terminated (death): add strong penalty -25.\\n- Add tiny alive bonus per step:\
+  \ +0.01.\\n- Penalize critically low vitals:\\n  if food <= 1: -0.8\\n  if drink\
+  \ <= 1: -0.8\\n  if energy <= 1: -0.4\\n  if health <= 1: -1.2\\n- Penalize health\
+  \ decreases this step: -0.3 * max(0, prev_health - cur_health)\\n- Reward increases\
+  \ in vitals (small):\\n  +0.15 * max(0, cur_food - prev_food)\\n  +0.15 * max(0,\
+  \ cur_drink - prev_drink)\\n  +0.08 * max(0, cur_energy - prev_energy)\\n  +0.20\
+  \ * max(0, cur_health - prev_health)\\n\\nThese must remain smaller than achievement\
+  \ bonuses.\\n\\n-----------------------------\\n(5) ANTI-WASTE / ACTIVITY (reduce\
+  \ useless actions, but don\u2019t kill exploration)\\n-----------------------------\\\
+  n- Penalize noop slightly (action==0): -0.02\\n\\n- Failed craft/place attempt penalty\
+  \ MUST NOT discourage early experimentation.\\n  Apply a small penalty ONLY if:\\\
+  n  (a) action in {7..16},\\n  (b) achievements unchanged AND inventory unchanged\
+  \ vs prev_step,\\n  (c) AND the agent plausibly had prerequisites for that action\
+  \ based on inventory/achievements.\\n\\nImplement simple prerequisite checks (approximate\
+  \ is fine; keep it safe):\\n  - place_table (8): wood>=2\\n  - make_wood_pickaxe\
+  \ (11) and make_wood_sword (14): place_table unlocked AND wood>=1\\n  - collect-related\
+  \ actions aren\u2019t here, so ignore.\\n  - place_furnace (9): stone>=4\\n  - make_stone_pickaxe/sword\
+  \ (12/15): place_furnace unlocked AND wood>=1 AND stone>=1\\n  - make_iron_pickaxe/sword\
+  \ (13/16): place_furnace unlocked AND wood>=1 AND iron>=1\\n  - place_stone (7):\
+  \ stone>=1\\n  - place_plant (10): sapling>=1\\n\\nIf the prerequisites are not\
+  \ met, do NOT penalize the failed attempt (the agent is learning).\\nIf prerequisites\
+  \ are met and still nothing changed: penalty around -0.06 (keep small).\\n\\n- If\
+  \ NOTHING changed (inventory and achievements unchanged) and pos unchanged: extra\
+  \ small penalty -0.01\\n- If nothing changed except pos changed: tiny exploration\
+  \ reward +0.001\\n\\n-----------------------------\\n(6) EPISODE-END BREADTH BONUS\
+  \ (encourage geometric-mean breadth)\\n-----------------------------\\nAt the final\
+  \ step (truncated or terminated), add a small bonus based on the COUNT of unlocked\
+  \ achievements (excluding wake_up).\\n- If truncated (survived to time limit): +0.3\
+  \ * count_unlocked (cap at +6)\\n- If terminated (died): no breadth bonus\\n\\n-----------------------------\\\
+  n(7) SAFETY / STABILITY\\n-----------------------------\\n- prev_step is None: return\
+  \ 0.0\\n- Clip final reward to [-30, 30]\\n- Use only builtins\\n- Keep code straightforward\
+  \ and deterministic\\n\\n============================================================\\\
+  nFINAL OUTPUT\\n============================================================\\nReturn\
+  \ JSON: {\\\"code\\\": \\\"<ONLY the function definition>\\\"}\\nNo extra text.\\\
+  n\",\"reasoning\":\"Diagnosis from the metrics:\\n- The agent reliably hits early\
+  \ gather/plant, and sometimes place_table, but it is not consistently crafting make_wood_pickaxe;\
+  \ in the latest results wood_sword becomes frequent while wood_pickaxe collapses\
+  \ to 0%. This indicates the reward is allowing an early distraction (sword) and/or\
+  \ the anti-waste penalties are accidentally teaching the agent to avoid repeated\
+  \ crafting attempts needed to learn table adjacency / prerequisites.\\n- The main\
+  \ missing cluster remains the mid-tech bottleneck (stone/coal accumulation -> place_furnace\
+  \ -> make_stone_pickaxe -> collect_iron). Sparse one-time achievement rewards are\
+  \ not sufficient unless the agent is strongly guided to accumulate enough stone/coal\
+  \ quantities.\\n- Food achievements remain near-zero, which likely shortens episodes\
+  \ or forces overly conservative play; survival shaping must support reaching mid-game.\\\
+  n\\nPrompt changes to address these failures without breaking what works:\\n1) Make\
+  \ early tech steps more reliable by increasing place_table and especially make_wood_pickaxe\
+  \ unlock weights, while reducing make_wood_sword\u2019s early value (still rewarded\
+  \ once for breadth, but less tempting as a shortcut).\\n2) Strengthen the furnace\
+  \ bridge with (a) higher stone/coal dense-shaping targets (so reward continues while\
+  \ accumulating enough), (b) stronger stage multipliers in Stage D (stone-for-furnace),\
+  \ and (c) additional one-time threshold bonuses at stone>=4/6/8 and coal>=1/2.\\\
+  n3) Prevent the anti-waste penalty from suppressing exploration by applying it only\
+  \ when the action plausibly could have succeeded (prerequisites satisfied). This\
+  \ reduces the risk that the agent learns \u201Cnever try crafting/placing\u201D\
+  .\\n4) Add explicit stage guidance to de-emphasize swords during Stages A\u2013\
+  F (via tool-delta multipliers) and re-emphasize them in Stage G so the sword achievements\
+  \ can still be collected later for breadth.\\n5) Keep achievement unlocks as the\
+  \ dominant term and retain the episode-end breadth bonus to improve the geometric-mean\
+  \ objective.\"}"
+usage:
+  prompt_tokens: 4916
+  completion_tokens: 5649
+  total_tokens: 10565
